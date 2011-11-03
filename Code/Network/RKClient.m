@@ -76,6 +76,7 @@ NSString *RKPathAppendQueryParams(NSString *resourcePath, NSDictionary *queryPar
 @synthesize OAuth1ConsumerSecret = _OAuth1ConsumerSecret;
 @synthesize OAuth1AccessToken = _OAuth1AccessToken;
 @synthesize OAuth1AccessTokenSecret = _OAuth1AccessTokenSecret;
+@synthesize OAuth1AccessTokenVerifier = _OAuth1AccessTokenVerifier;
 @synthesize OAuth2AccessToken = _OAuth2AccessToken;
 @synthesize OAuth2RefreshToken = _OAuth2RefreshToken;
 @synthesize HTTPHeaders = _HTTPHeaders;
@@ -156,6 +157,7 @@ NSString *RKPathAppendQueryParams(NSString *resourcePath, NSDictionary *queryPar
 }
 
 - (void)dealloc {
+    
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
     // Allow KVO to fire
@@ -172,6 +174,7 @@ NSString *RKPathAppendQueryParams(NSString *resourcePath, NSDictionary *queryPar
     self.serviceUnavailableAlertTitle = nil;
     self.serviceUnavailableAlertMessage = nil;
     self.requestCache = nil;
+    
     [_HTTPHeaders release];
     [_additionalRootCertificates release];
 
@@ -212,7 +215,8 @@ NSString *RKPathAppendQueryParams(NSString *resourcePath, NSDictionary *queryPar
 }
 
 - (void)setupRequest:(RKRequest *)request {
-	request.additionalHTTPHeaders = _HTTPHeaders;
+	
+    request.additionalHTTPHeaders = _HTTPHeaders;
     request.authenticationType = self.authenticationType;
 	request.username = self.username;
 	request.password = self.password;
@@ -224,6 +228,7 @@ NSString *RKPathAppendQueryParams(NSString *resourcePath, NSDictionary *queryPar
     // OAuth 1 Parameters
     request.OAuth1AccessToken = self.OAuth1AccessToken;
     request.OAuth1AccessTokenSecret = self.OAuth1AccessTokenSecret;
+    request.OAuth1AccessTokenVerifier = self.OAuth1AccessTokenVerifier;
     request.OAuth1ConsumerKey = self.OAuth1ConsumerKey;
     request.OAuth1ConsumerSecret = self.OAuth1ConsumerSecret;
 

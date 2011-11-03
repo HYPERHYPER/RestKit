@@ -58,6 +58,7 @@
 @synthesize OAuth1ConsumerSecret = _OAuth1ConsumerSecret;
 @synthesize OAuth1AccessToken = _OAuth1AccessToken;
 @synthesize OAuth1AccessTokenSecret = _OAuth1AccessTokenSecret;
+@synthesize OAuth1AccessTokenVerifier = _OAuth1AccessTokenVerifier;
 @synthesize OAuth2AccessToken = _OAuth2AccessToken;
 @synthesize OAuth2RefreshToken = _OAuth2RefreshToken;
 @synthesize queue = _queue;
@@ -167,6 +168,8 @@
     _OAuth1AccessToken = nil;
     [_OAuth1AccessTokenSecret release];
     _OAuth1AccessTokenSecret = nil;
+    [_OAuth1AccessTokenVerifier release];
+    _OAuth1AccessTokenVerifier = nil;
     [_OAuth2AccessToken release];
     _OAuth2AccessToken = nil;
     [_OAuth2RefreshToken release];
@@ -252,7 +255,10 @@
                                             consumerKey:self.OAuth1ConsumerKey
                                          consumerSecret:self.OAuth1ConsumerSecret
                                             accessToken:self.OAuth1AccessToken
-                                            tokenSecret:self.OAuth1AccessTokenSecret];
+                                            tokenSecret:self.OAuth1AccessTokenSecret
+                                               verifier:self.OAuth1AccessTokenVerifier];
+        
+        
         [_URLRequest setValue:[echo valueForHTTPHeaderField:@"Authorization"] forHTTPHeaderField:@"Authorization"];
         [_URLRequest setValue:[echo valueForHTTPHeaderField:@"Accept-Encoding"] forHTTPHeaderField:@"Accept-Encoding"];
         [_URLRequest setValue:[echo valueForHTTPHeaderField:@"User-Agent"] forHTTPHeaderField:@"User-Agent"];

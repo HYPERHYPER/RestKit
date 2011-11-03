@@ -161,6 +161,7 @@ NSString *RKPathAppendQueryParams(NSString *resourcePath, NSDictionary *queryPar
     NSString *_OAuth1ConsumerSecret;
     NSString *_OAuth1AccessToken;
     NSString *_OAuth1AccessTokenSecret;
+    NSString *_OAuth1AccessTokenVerifier;
     NSString *_OAuth2AccessToken;
     NSString *_OAuth2RefreshToken;
 	NSMutableDictionary *_HTTPHeaders;
@@ -300,7 +301,7 @@ NSString *RKPathAppendQueryParams(NSString *resourcePath, NSDictionary *queryPar
 /**
  The OAuth 1.0 consumer key
  
- Used to build an Authorization header wjem authenticationType is
+ Used to build an Authorization header when authenticationType is
  RKRequestAuthenticationTypeOAuth1
  
  @see authenticationType
@@ -311,7 +312,7 @@ NSString *RKPathAppendQueryParams(NSString *resourcePath, NSDictionary *queryPar
 /**
  The OAuth 1.0 consumer secret
  
- Used to build an Authorization header wjem authenticationType is
+ Used to build an Authorization header when authenticationType is
  RKRequestAuthenticationTypeOAuth1
  
  @see authenticationType
@@ -322,7 +323,7 @@ NSString *RKPathAppendQueryParams(NSString *resourcePath, NSDictionary *queryPar
 /**
  The OAuth 1.0 access token
  
- Used to build an Authorization header wjem authenticationType is
+ Used to build an Authorization header when authenticationType is
  RKRequestAuthenticationTypeOAuth1
  
  @see authenticationType
@@ -333,13 +334,25 @@ NSString *RKPathAppendQueryParams(NSString *resourcePath, NSDictionary *queryPar
 /**
  The OAuth 1.0 access token secret
  
- Used to build an Authorization header wjem authenticationType is
+ Used to build an Authorization header when authenticationType is
  RKRequestAuthenticationTypeOAuth1
  
  @see authenticationType
  @see RKRequestAuthenticationType
  */
 @property(nonatomic,retain) NSString *OAuth1AccessTokenSecret;
+
+/**
+ The OAuth 1.0 access token verifier
+ 
+ Used to build an Authorization header when authenticationType is
+ RKRequestAuthenticationTypeOAuth1
+ 
+ @see authenticationType
+ @see RKRequestAuthenticationType
+ */
+@property(nonatomic,retain) NSString *OAuth1AccessTokenVerifier;
+
 
 /*** @name OAuth2 Secrets */
 

@@ -110,6 +110,7 @@ typedef enum {
     NSString *_OAuth1ConsumerSecret;
     NSString *_OAuth1AccessToken;
     NSString *_OAuth1AccessTokenSecret;
+    NSString *_OAuth1AccessTokenVerifier;
     NSString *_OAuth2AccessToken;
     NSString *_OAuth2RefreshToken;
 	RKRequestMethod _method;
@@ -249,6 +250,11 @@ typedef enum {
  The OAuth 1.0 access token secret
  */
 @property(nonatomic,retain) NSString *OAuth1AccessTokenSecret;
+
+/**
+ The OAuth 1.0 access token verifier
+ */
+@property(nonatomic,retain) NSString *OAuth1AccessTokenVerifier;
 
 /*** @name OAuth2 Secrets */
 
