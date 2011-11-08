@@ -209,10 +209,17 @@ static NSDateFormatter* __rfc1123DateFormatter;
 }
 
 - (RKResponse*)responseForRequest:(RKRequest*)request {
-    if (! [request isCacheable]) {
+    
+    if (![request isCacheable]) {
+    
         return nil;
     }
     
+    if (![self hasResponseForRequest:request]) {
+        
+        return nil;
+    }
+        
 	[_cacheLock lock];
 
 	RKResponse* response = nil;
