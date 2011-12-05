@@ -96,7 +96,7 @@
     self = [super init];
     if (self) {        
 #if TARGET_OS_IPHONE
-        _backgroundPolicy = RKRequestBackgroundPolicyNone;
+        _backgroundPolicy = RKRequestBackgroundPolicyCancel;
         _backgroundTaskIdentifier = 0; 
         BOOL backgroundOK = &UIBackgroundTaskInvalid != NULL;
         if (backgroundOK) {

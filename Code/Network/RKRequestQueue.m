@@ -315,10 +315,20 @@ static const NSTimeInterval kFlushDelay = 0.3;
 	}
 }
 
-- (void)addRequest:(RKRequest*)request {
+- (void)addRequest:(RKRequest *)request {
     RKLogTrace(@"Request %@ added to queue %@", request, self);
 
     @synchronized(self) {
+
+        for (RKRequest *existingRequest in _requests) {            
+            NSString *newURL = [[request URL] absoluteString];
+            NSString *existingURL = [[existingRequest URL] absoluteString];
+            if ([existingURL isEqualToString:newURL]) {
+                RKLogInfo(@"**** Throwing away duplicate request: %@ ****", newURL);
+                return;
+            }
+        }
+        
         [_requests addObject:request];
         request.queue = self;
     }
@@ -418,6 +428,8 @@ static const NSTimeInterval kFlushDelay = 0.3;
 		[self cancelRequest:request loadNext:NO];
 	}
 	[pool drain];
+    
+    NSAssert(_loadingCount == 0, @"Loading count should be 0 after cancelling all requests");
 }
 
 - (void)start {

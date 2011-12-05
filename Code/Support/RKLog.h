@@ -157,7 +157,7 @@ lcl_configure_by_name("App", level);
     #ifdef DEBUG
         #define RKLogLevelDefault RKLogLevelInfo
     #else
-        #define RKLogLevelDefault RKLogLevelWarning
+        #define RKLogLevelDefault RKLogLevelCritical
     #endif
 #endif
 
