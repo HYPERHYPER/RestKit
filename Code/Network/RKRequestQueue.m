@@ -320,15 +320,6 @@ static const NSTimeInterval kFlushDelay = 0.3;
 
     @synchronized(self) {
 
-        for (RKRequest *existingRequest in _requests) {            
-            NSString *newURL = [[request URL] absoluteString];
-            NSString *existingURL = [[existingRequest URL] absoluteString];
-            if ([existingURL isEqualToString:newURL]) {
-                RKLogInfo(@"**** Throwing away duplicate request: %@ ****", newURL);
-                return;
-            }
-        }
-        
         [_requests addObject:request];
         request.queue = self;
     }
