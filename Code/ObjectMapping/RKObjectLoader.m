@@ -94,9 +94,11 @@
 // RKRequestQueue to remove requests from the queue. All requests need to be finalized.
 - (void)finalizeLoad:(BOOL)successful error:(NSError*)error {
 	_isLoading = NO;
-    
+        
 	if (successful) {
-		_isLoaded = YES;
+		
+        _isLoaded = YES;
+        
         if ([self.delegate respondsToSelector:@selector(objectLoaderDidFinishLoading:)]) {
             [(NSObject<RKObjectLoaderDelegate>*)self.delegate performSelectorOnMainThread:@selector(objectLoaderDidFinishLoading:)
                                                                                withObject:self waitUntilDone:YES];            
@@ -108,8 +110,11 @@
                                                             object:self 
                                                           userInfo:userInfo];
 	} else {
-        NSDictionary* userInfo = [NSDictionary dictionaryWithObject:(error ? error : (NSError*)[NSNull null])
-                                                             forKey:RKRequestDidFailWithErrorNotificationUserInfoErrorKey];
+
+        NSDictionary* userInfo = [NSDictionary dictionaryWithObjectsAndKeys:
+                                    (error ? error : (NSError*)[NSNull null]), RKRequestDidFailWithErrorNotificationUserInfoErrorKey,
+                                    _response, RKRequestDidFailWithErrorNotificationUserInfoResponseKey, nil];
+        
 		[[NSNotificationCenter defaultCenter] postNotificationName:RKRequestDidFailWithErrorNotification
 															object:self
 														  userInfo:userInfo];

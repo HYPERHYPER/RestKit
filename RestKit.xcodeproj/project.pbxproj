@@ -2495,6 +2495,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 4.0;
 				OTHER_LDFLAGS = "-ObjC";
 				SDKROOT = iphoneos;
+				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SYMROOT = Build;
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
@@ -2520,6 +2521,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 4.0;
 				OTHER_LDFLAGS = "-ObjC";
 				SDKROOT = iphoneos;
+				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SYMROOT = Build;
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
@@ -2668,6 +2670,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 4.0;
 				OTHER_LDFLAGS = "-ObjC";
 				SDKROOT = iphoneos;
+				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SYMROOT = Build;
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
@@ -2999,6 +3002,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 4.0;
 				OTHER_LDFLAGS = "-ObjC";
 				SDKROOT = iphoneos;
+				SKIP_INSTALL = NO;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				SYMROOT = Build;
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";

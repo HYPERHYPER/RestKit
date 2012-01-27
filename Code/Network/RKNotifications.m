@@ -23,6 +23,7 @@
 NSString* const RKRequestSentNotification = @"RKRequestSentNotification";
 NSString* const RKRequestDidFailWithErrorNotification = @"RKRequestDidFailWithErrorNotification";
 NSString* const RKRequestDidFailWithErrorNotificationUserInfoErrorKey = @"error";
+NSString* const RKRequestDidFailWithErrorNotificationUserInfoResponseKey = @"response";
 NSString* const RKRequestDidLoadResponseNotification = @"RKRequestDidLoadResponseNotification";
 NSString* const RKRequestDidLoadResponseNotificationUserInfoResponseKey = @"response";
 NSString* const RKServiceDidBecomeUnavailableNotification = @"RKServiceDidBecomeUnavailableNotification";
