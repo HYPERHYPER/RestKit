@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Blake Watters on 3/4/10.
-//  Copyright 2010 Two Toasters
+//  Copyright (c) 2009-2012 RestKit. All rights reserved.
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 //  limitations under the License.
 //
 
-#import "../ObjectMapping/ObjectMapping.h"
+#import "ObjectMapping.h"
 
 // The default seed database filename. Used when the object store has not been initialized
 extern NSString* const RKDefaultSeedDatabaseFileName;

@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Blake Watters on 3/4/10.
-//  Copyright 2010 Two Toasters
+//  Copyright (c) 2009-2012 RestKit. All rights reserved.
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
 #import "RKManagedObjectSeeder.h"
 #import "RKManagedObjectStore.h"
-#import "../ObjectMapping/RKParserRegistry.h"
+#import "RKParserRegistry.h"
 #import "RKLog.h"
 
 // Set Logging Component
@@ -156,15 +156,16 @@ NSString* const RKDefaultSeedDatabaseFileName = @"RKSeedDatabase.sqlite";
             }
         }
         
-		RKLogInfo(@"Seeded %d objects from %@...", [mappedObjects count], [NSString stringWithFormat:@"%@", fileName]);
+		RKLogInfo(@"Seeded %lu objects from %@...", (unsigned long) [mappedObjects count], [NSString stringWithFormat:@"%@", fileName]);
 	} else {
 		RKLogError(@"Unable to read file %@: %@", fileName, [error localizedDescription]);
 	}
 }
 
 - (void)finalizeSeedingAndExit {
-	NSError* error = [[_manager objectStore] save];
-	if (error != nil) {
+	NSError *error = nil;
+    BOOL success = [[_manager objectStore] save:&error];
+	if (! success) {
 		RKLogError(@"[RestKit] RKManagedObjectSeeder: Error saving object context: %@", [error localizedDescription]);
 	}
 	

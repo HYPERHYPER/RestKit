@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Blake Watters on 8/3/09.
-//  Copyright 2009 RestKit
+//  Copyright (c) 2009-2012 RestKit. All rights reserved.
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 //
 
 #import "RKParams.h"
-#import "../Support/RKLog.h"
-#import "NSString+MD5.h"
+#import "RKLog.h"
+#import "NSString+RKAdditions.h"
 
 // Need for iOS 5 UIDevice workaround
 #if TARGET_OS_IPHONE
@@ -87,6 +87,14 @@ NSString* const kRKStringBoundary = @"0xKhTmLbOuNdArY";
 	[attachment release];
 	
 	return attachment;
+}
+
+- (NSDictionary *)dictionaryOfPlainTextParams {
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    for (RKParamsAttachment *attachment in _attachments)
+        if (attachment.value)   // if the value exist, it is plain text param
+            [result setValue:attachment.value forKey:attachment.name];
+    return [NSDictionary dictionaryWithDictionary:result];
 }
 
 - (RKParamsAttachment *)setFile:(NSString *)filePath forParam:(NSString *)param {
