@@ -62,7 +62,8 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
 - (id)initWithConsumerKey:(NSString *)consumerKey
            consumerSecret:(NSString *)consumerSecret
               accessToken:(NSString *)accessToken
-              tokenSecret:(NSString *)tokenSecret;
+              tokenSecret:(NSString *)tokenSecret 
+                 verifier:(NSString *)verifier;
 
 // generate a request
 - (NSMutableURLRequest *)request;
@@ -75,17 +76,6 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
 
 // generate signature base
 - (NSString *)signatureBase;
-
-// method can be PUT, POST or DELETE. but not GET
-+ (NSURLRequest *)URLRequestForPath:(NSString *)path
-                          urlMethod:(NSString *)urlMethod
-                         parameters:(NSDictionary *)parameters
-                             scheme:(NSString *)scheme
-                               host:(NSString *)host
-                        consumerKey:(NSString *)consumerKey
-                     consumerSecret:(NSString *)consumerSecret
-                        accessToken:(NSString *)accessToken
-                        tokenSecret:(NSString *)tokenSecret;
 
 @end
 @interface NSString (GCOAuthAdditions)
@@ -105,17 +95,32 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
 - (id)initWithConsumerKey:(NSString *)consumerKey
            consumerSecret:(NSString *)consumerSecret
               accessToken:(NSString *)accessToken
-              tokenSecret:(NSString *)tokenSecret {
+              tokenSecret:(NSString *)tokenSecret 
+                 verifier:(NSString *)verifier {
     self = [super init];
     if (self) {
-        OAuthParameters = [[NSDictionary alloc] initWithObjectsAndKeys:
-                           [[consumerKey copy] autorelease], @"oauth_consumer_key",
-                           [GCOAuth nonce], @"oauth_nonce",
-                           [GCOAuth timeStamp], @"oauth_timestamp",
-                           @"1.0",  @"oauth_version",
-                           @"HMAC-SHA1", @"oauth_signature_method",
-                           [[accessToken copy] autorelease], @"oauth_token", // leave accessToken last or you'll break XAuth attempts
-                           nil];
+        
+        NSAssert(consumerKey, @"consumerKey cannot be nil");
+        NSAssert(consumerSecret, @"consumerSecret cannot be nil");
+        
+        NSMutableDictionary *dict = [NSMutableDictionary dictionary];
+        
+        [dict setObject:[[consumerKey copy] autorelease] forKey:@"oauth_consumer_key"];
+        [dict setObject:[GCOAuth nonce] forKey:@"oauth_nonce"];
+        [dict setObject:[GCOAuth timeStamp] forKey:@"oauth_timestamp"];
+        [dict setObject:@"1.0" forKey:@"oauth_version"];
+        [dict setObject:@"HMAC-SHA1" forKey:@"oauth_signature_method"];
+        
+        if (verifier) {
+            
+            [dict setObject:[[verifier copy] autorelease] forKey:@"oauth_verifier"];
+        }
+        if (accessToken) {
+            
+            [dict setObject:[[accessToken copy] autorelease] forKey:@"oauth_token"];
+        }
+        
+        OAuthParameters = [dict retain];
         signatureSecret = [[NSString stringWithFormat:@"%@&%@", [consumerSecret pcen], [tokenSecret ?: @"" pcen]] retain];
     }
     return self;
@@ -183,7 +188,7 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     NSString *URLString = [NSString stringWithFormat:@"%@://%@%@",
                            [[URL scheme] lowercaseString],
                            [[URL host] lowercaseString],
-                           [[URL path] lowercaseString]];
+                           [URL path]];
     
     // create components
     NSArray *components = [NSArray arrayWithObjects:
@@ -252,7 +257,8 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
                        consumerKey:consumerKey
                     consumerSecret:consumerSecret
                        accessToken:accessToken
-                       tokenSecret:tokenSecret];
+                       tokenSecret:tokenSecret
+                          verifier:nil];
 }
 + (NSURLRequest *)URLRequestForPath:(NSString *)path
                       GETParameters:(NSDictionary *)parameters
@@ -261,7 +267,8 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
                         consumerKey:(NSString *)consumerKey
                      consumerSecret:(NSString *)consumerSecret
                         accessToken:(NSString *)accessToken
-                        tokenSecret:(NSString *)tokenSecret {
+                        tokenSecret:(NSString *)tokenSecret 
+                           verifier:(NSString *)verifier {
     
     // check parameters
     if (host == nil || path == nil) { return nil; }
@@ -270,7 +277,8 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     GCOAuth *oauth = [[GCOAuth alloc] initWithConsumerKey:consumerKey
                                            consumerSecret:consumerSecret
                                               accessToken:accessToken
-                                              tokenSecret:tokenSecret];
+                                              tokenSecret:tokenSecret
+                                                 verifier:verifier];
     oauth.HTTPMethod = @"GET";
     oauth.requestParameters = parameters;
     
@@ -289,91 +297,8 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     return request;
     
 }
-
 + (NSURLRequest *)URLRequestForPath:(NSString *)path
                      POSTParameters:(NSDictionary *)parameters
-                               host:(NSString *)host
-                        consumerKey:(NSString *)consumerKey
-                     consumerSecret:(NSString *)consumerSecret
-                        accessToken:(NSString *)accessToken
-                        tokenSecret:(NSString *)tokenSecret
-{
-    return [self URLRequestForPath:path
-                    POSTParameters:parameters
-                            scheme:@"https"
-                              host:host
-                       consumerKey:consumerKey
-                    consumerSecret:consumerSecret
-                       accessToken:accessToken
-                       tokenSecret:tokenSecret];
-}
-
-
-+ (NSURLRequest *)URLRequestForPath:(NSString *)path
-                     POSTParameters:(NSDictionary *)parameters
-                             scheme:(NSString *)scheme
-                               host:(NSString *)host
-                        consumerKey:(NSString *)consumerKey
-                     consumerSecret:(NSString *)consumerSecret
-                        accessToken:(NSString *)accessToken
-                        tokenSecret:(NSString *)tokenSecret {
-    
-    return [self URLRequestForPath:path
-                         urlMethod:@"POST"
-                        parameters:parameters
-                            scheme:scheme
-                              host:host
-                       consumerKey:consumerKey
-                    consumerSecret:consumerSecret
-                       accessToken:accessToken
-                       tokenSecret:tokenSecret];
-    
-}
-
-+ (NSURLRequest *)URLRequestForPath:(NSString *)path
-                      PUTParameters:(NSDictionary *)parameters
-                               host:(NSString *)host
-                        consumerKey:(NSString *)consumerKey
-                     consumerSecret:(NSString *)consumerSecret
-                        accessToken:(NSString *)accessToken
-                        tokenSecret:(NSString *)tokenSecret {
-    
-    return [self URLRequestForPath:path
-                     PUTParameters:parameters
-                            scheme:@"HTTPS"
-                              host:host
-                       consumerKey:consumerKey
-                    consumerSecret:consumerSecret
-                       accessToken:accessToken
-                       tokenSecret:tokenSecret];
-}
-
-+ (NSURLRequest *)URLRequestForPath:(NSString *)path
-                      PUTParameters:(NSDictionary *)parameters
-                             scheme:(NSString *)scheme
-                               host:(NSString *)host
-                        consumerKey:(NSString *)consumerKey
-                     consumerSecret:(NSString *)consumerSecret
-                        accessToken:(NSString *)accessToken
-                        tokenSecret:(NSString *)tokenSecret {
-    
-    
-    return [self URLRequestForPath:path
-                         urlMethod:@"PUT"
-                        parameters:parameters
-                            scheme:scheme
-                              host:host
-                       consumerKey:consumerKey
-                    consumerSecret:consumerSecret
-                       accessToken:accessToken
-                       tokenSecret:tokenSecret];
-}
-
-
-+ (NSURLRequest *)URLRequestForPath:(NSString *)path
-                          urlMethod:(NSString *)urlMethod
-                         parameters:(NSDictionary *)parameters
-                             scheme:(NSString *)scheme
                                host:(NSString *)host
                         consumerKey:(NSString *)consumerKey
                      consumerSecret:(NSString *)consumerSecret
@@ -387,10 +312,11 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     GCOAuth *oauth = [[GCOAuth alloc] initWithConsumerKey:consumerKey
                                            consumerSecret:consumerSecret
                                               accessToken:accessToken
-                                              tokenSecret:tokenSecret];
-    oauth.HTTPMethod = urlMethod;
+                                              tokenSecret:tokenSecret
+                                                 verifier:nil];
+    oauth.HTTPMethod = @"POST";
     oauth.requestParameters = parameters;
-    NSURL *URL = [[NSURL alloc] initWithScheme:scheme host:host path:path];
+    NSURL *URL = [[NSURL alloc] initWithScheme:@"https" host:host path:path];
     oauth.URL = URL;
     [URL release];
     
@@ -408,6 +334,7 @@ static BOOL GCOAuthUseHTTPSCookieStorage = YES;
     // return
     [oauth release];
     return request;
+    
 }
 
 @end

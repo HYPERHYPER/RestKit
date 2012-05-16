@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Blake Watters on 2/13/11.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2011 Two Toasters
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 //  limitations under the License.
 //
 
-#import "RKObjectLoader.h"
+#import "../ObjectMapping/RKObjectLoader.h"
 #import "RKManagedObjectStore.h"
 
 /**
@@ -28,20 +28,11 @@
  concerns imposed by Core Data.
  */
 @interface RKManagedObjectLoader : RKObjectLoader {
-    RKManagedObjectStore *_objectStore;
     NSManagedObjectID* _targetObjectID;	
     NSMutableSet* _managedObjectKeyPaths;
     BOOL _deleteObjectOnFailure;
 }
 
-/**
- A reference to a RestKit managed object store for interacting with Core Data
- 
- @see RKManagedObjectStore
- */
-@property (nonatomic, retain) RKManagedObjectStore* objectStore;
-
-+ (id)loaderWithURL:(RKURL *)URL mappingProvider:(RKObjectMappingProvider *)mappingProvider objectStore:(RKManagedObjectStore *)objectStore;
-- (id)initWithURL:(RKURL *)URL mappingProvider:(RKObjectMappingProvider *)mappingProvider objectStore:(RKManagedObjectStore *)objectStore;
+@property (nonatomic, readonly) RKManagedObjectStore* objectStore;
 
 @end

@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Blake Watters on 4/30/11.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2011 Two Toasters
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -81,18 +81,14 @@
 
 /**
  Create a new mapping operation configured to transform the object representation
- in a source object to a new destination object according to an object mapping definition.
- 
- Note that if Core Data support is available, an instance of RKManagedObjectMappingOperation may be returned
- 
- @return An instance of RKObjectMappingOperation or RKManagedObjectMappingOperation for performing the mapping
+ in a source object to a new destination object according to an object mapping definition
  */
-+ (id)mappingOperationFromObject:(id)sourceObject toObject:(id)destinationObject withMapping:(RKObjectMappingDefinition *)mapping;
++ (RKObjectMappingOperation*)mappingOperationFromObject:(id)sourceObject toObject:(id)destinationObject withMapping:(id<RKObjectMappingDefinition>)mapping;
 
 /**
  Initialize a mapping operation for an object and set of data at a particular key path with an object mapping definition
  */
-- (id)initWithSourceObject:(id)sourceObject destinationObject:(id)destinationObject mapping:(RKObjectMappingDefinition *)mapping;
+- (id)initWithSourceObject:(id)sourceObject destinationObject:(id)destinationObject mapping:(id<RKObjectMappingDefinition>)mapping;
 
 /**
  Process all mappable values from the mappable dictionary and assign them to the target object

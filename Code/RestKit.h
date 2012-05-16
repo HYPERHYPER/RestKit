@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Blake Watters on 2/19/10.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2010 Two Toasters
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -18,10 +18,9 @@
 //  limitations under the License.
 //
 
-#import "Network.h"
-#import "Support.h"
-#import "ObjectMapping.h"
-#import "CoreData.h"
+#import "Network/Network.h"
+#import "Support/Support.h"
+#import "ObjectMapping/ObjectMapping.h"
 
 /**
  Set the App logging component. This header

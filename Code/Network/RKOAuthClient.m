@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Rodrigo Garcia on 7/20/11.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2011 RestKit. All rights reserved.
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -19,10 +19,7 @@
 //
 
 #import "RKOAuthClient.h"
-#import "RKErrors.h"
-
-@interface RKOAuthClient () <RKRequestDelegate>
-@end
+#import "../Support/Errors.h"
 
 @implementation RKOAuthClient
 
@@ -34,16 +31,22 @@
 @synthesize delegate = _delegate;
 @synthesize accessToken = _accessToken;
 
-+ (RKOAuthClient *)clientWithClientID:(NSString *)clientID secret:(NSString *)secret {
-    RKOAuthClient *client = [[[self alloc] initWithClientID:clientID secret:secret] autorelease];
++ (RKOAuthClient *)clientWithClientID:(NSString *)clientId 
+                               secret:(NSString *)secret 
+                             delegate:(id<RKOAuthClientDelegate>)delegate {
+    RKOAuthClient *client = [[[self alloc] initWithClientID:clientId secret:secret delegate:delegate] autorelease];
     return client;
 }
 
-- (id)initWithClientID:(NSString *)clientID secret:(NSString *)secret {
+- (id)initWithClientID:(NSString *)clientId 
+                secret:(NSString *)secret 
+              delegate:(id<RKOAuthClientDelegate>)delegate
+{
     self = [super init];
     if (self) {
-        _clientID = [clientID copy];
+        _clientID = [clientId copy];
         _clientSecret = [secret copy];
+        _delegate = delegate;
     }
     
     return self;
@@ -60,9 +63,8 @@
 - (void)validateAuthorizationCode {
     NSString *httpBody = [NSString stringWithFormat:@"client_id=%@&client_secret=%@&code=%@&redirect_uri=%@&grant_type=authorization_code",
                           _clientID, _clientSecret, _authorizationCode, _callbackURL];
-    NSURL *URL = [NSURL URLWithString:_authorizationURL];
-    RKRequest *theRequest = [RKRequest requestWithURL:URL];
-    theRequest.delegate = self;
+    RKClient *requestClient = [RKClient clientWithBaseURL:_authorizationURL];
+    RKRequest *theRequest = [requestClient requestWithResourcePath:@"" delegate:self];
     [theRequest setHTTPBodyString:httpBody];
     [theRequest setMethod:RKRequestMethodPOST];
     [theRequest send];
@@ -90,7 +92,7 @@
             // Heads-up! There is an error in the response
             // The possible errors are defined in the OAuth2 Protocol
             
-            RKOAuthClientErrorCode errorCode = RKOAuthClientErrorUnknown;
+            RKOAuthClientErrorCode errorCode;
             NSString *errorDescription = [oauthResponse objectForKey:@"error_description"];
             
             if ([errorResponse isEqualToString:@"invalid_grant"]) {
@@ -114,7 +116,7 @@
             
             NSDictionary* userInfo = [NSDictionary dictionaryWithObjectsAndKeys:
                                       errorDescription, NSLocalizedDescriptionKey, nil];
-            NSError *error = [NSError errorWithDomain:RKErrorDomain code:errorCode userInfo:userInfo];
+            NSError *error = [NSError errorWithDomain:RKRestKitErrorDomain code:errorCode userInfo:userInfo];
             
             
             // Inform the delegate of what happened
@@ -165,7 +167,7 @@
 - (void)request:(RKRequest *)request didFailLoadWithError:(NSError *)error {
     NSDictionary* userInfo = [NSDictionary dictionaryWithObjectsAndKeys:
                               error, NSUnderlyingErrorKey, nil];
-    NSError *clientError = [NSError errorWithDomain:RKErrorDomain code:RKOAuthClientErrorRequestFailure userInfo:userInfo];
+    NSError *clientError = [NSError errorWithDomain:RKRestKitErrorDomain code:RKOAuthClientErrorRequestError userInfo:userInfo];
     if ([self.delegate respondsToSelector:@selector(OAuthClient:didFailLoadingRequest:withError:)]) {
         [self.delegate OAuthClient:self didFailLoadingRequest:request withError:clientError];
     }

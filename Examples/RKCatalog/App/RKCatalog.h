@@ -3,12 +3,12 @@
 //  RKCatalog
 //
 //  Created by Blake Watters on 4/21/11.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2011 Two Toasters. All rights reserved.
 //
 
 #import <UIKit/UIKit.h>
 #import <RestKit/RestKit.h>
-#import <RestKit/CoreData.h>
+#import <RestKit/CoreData/CoreData.h>
 
 // Import the base URL defined in the app delegate
-extern NSURL* gRKCatalogBaseURL;
+extern NSString* gRKCatalogBaseURL;

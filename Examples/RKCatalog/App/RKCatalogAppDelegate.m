@@ -3,18 +3,18 @@
 //  RKCatalog
 //
 //  Created by Blake Watters on 4/21/11.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2011 Two Toasters. All rights reserved.
 //
 
 #import "RKCatalogAppDelegate.h"
 #import "RootViewController.h"
 
-NSURL *gRKCatalogBaseURL = nil;
+NSString* gRKCatalogBaseURL = nil;
 
 @implementation RKCatalogAppDelegate
 
-@synthesize window;
-@synthesize navigationController;
+@synthesize window=_window;
+@synthesize navigationController=_navigationController;
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Override point for customization after application launch.
@@ -23,14 +23,15 @@ NSURL *gRKCatalogBaseURL = nil;
     [self.window makeKeyAndVisible];
     
     
-    gRKCatalogBaseURL = [[NSURL alloc] initWithString:@"http://rkcatalog.heroku.com"];
+    // gRKCatalogBaseURL = [@"http://localhost:4567" retain];
+    gRKCatalogBaseURL = [@"http://rkcatalog.heroku.com" retain];
     
     return YES;
 }
 
 - (void)dealloc {
-    [window release];
-    [navigationController release];
+    [_window release];
+    [_navigationController release];
     [super dealloc];
 }
 

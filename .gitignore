@@ -7,7 +7,6 @@ Docs/API
 # temp nibs and swap files
 *~.nib
 *.swp
-*.orig
 
 # OS X folder attributes
 .DS_Store
@@ -21,6 +20,6 @@ Docs/API
 
 Examples/RKDiscussionBoardExample/discussion_board_backend/public/system/attachments/*
 
-# Thin
-log
-tmp
+# UISpecRunner cached build path
+.uispec.app
+Specs/Runner/UISpec

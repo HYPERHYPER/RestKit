@@ -1,9 +1,9 @@
 //
 //  RKResponse.m
-//  RestKit
+//  RKFramework
 //
 //  Created by Blake Watters on 7/28/09.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2009 Two Toasters
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -22,17 +22,15 @@
 #import "RKNotifications.h"
 #import "RKLog.h"
 #import "RKParserRegistry.h"
-#import "RKRequestCache.h"
+#import "RKClient.h"
 
 // Set Logging Component
 #undef RKLogComponent
 #define RKLogComponent lcl_cRestKitNetwork
 
-#define RKResponseIgnoreDelegateIfCancelled(...)                                   \
-if (self.request && [self.request isCancelled]) {                                                  \
-RKLogDebug(@"%s: Ignoring NSURLConnection delegate message sent after cancel.", __PRETTY_FUNCTION__);     \
-return __VA_ARGS__;                                                                \
-}
+extern NSString* cacheResponseCodeKey;
+extern NSString* cacheMIMETypeKey;
+extern NSString* cacheURLKey;
 
 @implementation RKResponse
 
@@ -86,7 +84,6 @@ return __VA_ARGS__;                                                             
 }
 
 - (void)dealloc {
-    _request = nil;
 	[_httpURLResponse release];
 	_httpURLResponse = nil;
 	[_body release];
@@ -103,37 +100,40 @@ return __VA_ARGS__;                                                             
 }
 
 - (BOOL)isServerTrusted:(SecTrustRef)trust {
+    RKClient* client = [RKClient sharedClient];
     BOOL proceed = NO;
     
-    if (_request.disableCertificateValidation) {
+    if( client.disableCertificateValidation ) {
         proceed = YES;
-    } else if ([_request.additionalRootCertificates count] > 0 ) {
-        CFArrayRef rootCerts = (CFArrayRef)[_request.additionalRootCertificates allObjects];
+    }
+#ifdef RESTKIT_SSL_VALIDATION
+    else if( [client.additionalRootCertificates count] > 0 ) {
+        CFArrayRef rootCerts = (CFArrayRef)[client.additionalRootCertificates allObjects];
         SecTrustResultType result;
         OSStatus returnCode;
         
-        if (rootCerts && CFArrayGetCount(rootCerts)) {
+        if( rootCerts && CFArrayGetCount(rootCerts) ) {
             // this could fail, but the trust evaluation will proceed (it's likely to fail, of course)
             SecTrustSetAnchorCertificates(trust, rootCerts);
         }
         
         returnCode = SecTrustEvaluate(trust, &result);
         
-        if (returnCode == errSecSuccess) {
+        if( returnCode == errSecSuccess ) {
             proceed = (result == kSecTrustResultProceed || result == kSecTrustResultConfirm || result == kSecTrustResultUnspecified);
-            if (result == kSecTrustResultRecoverableTrustFailure) {
+            if( result == kSecTrustResultRecoverableTrustFailure ) {
                 // TODO: should try to recover here
                 // call SecTrustGetCssmResult() for more information about the failure
             }
         }
     }
+#endif
     
     return proceed;
 }
 
 // Handle basic auth & SSL certificate validation
 - (void)connection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge {
-    RKResponseIgnoreDelegateIfCancelled();
     RKLogDebug(@"Received authentication challenge");
     
 	if ([challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
@@ -154,18 +154,22 @@ return __VA_ARGS__;                                                             
 		[[challenge sender] useCredential:newCredential
 		       forAuthenticationChallenge:challenge];
 	} else {
-	    RKLogWarning(@"Failed authentication challenge after %ld failures", (long) [challenge previousFailureCount]);
+	    RKLogWarning(@"Failed authentication challenge after %d failures", [challenge previousFailureCount]);
 		[[challenge sender] cancelAuthenticationChallenge:challenge];
 	}
 }
 
 - (BOOL)connection:(NSURLConnection *)connection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)space {
-    RKResponseIgnoreDelegateIfCancelled(NO);
     RKLogDebug(@"Asked if canAuthenticateAgainstProtectionSpace: with authenticationMethod = %@", [space authenticationMethod]);
 	if ([[space authenticationMethod] isEqualToString:NSURLAuthenticationMethodServerTrust]) {
 		// server is using an SSL certificate that the OS can't validate
 		// see whether the client settings allow validation here
-		if (_request.disableCertificateValidation || [_request.additionalRootCertificates count] > 0) {
+		RKClient* client = [RKClient sharedClient];
+		if (client.disableCertificateValidation
+#ifdef RESTKIT_SSL_VALIDATION
+            || [client.additionalRootCertificates count] > 0
+#endif
+            ) {
 			return YES;
 		} else { 
 			return NO;
@@ -182,37 +186,29 @@ return __VA_ARGS__;                                                             
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data {
-    RKResponseIgnoreDelegateIfCancelled();
 	[_body appendData:data];
-    [_request invalidateTimeoutTimer];
-    if ([[_request delegate] respondsToSelector:@selector(request:didReceiveData:totalBytesReceived:totalBytesExpectedToReceive:)]) {
-        [[_request delegate] request:_request didReceiveData:[data length] totalBytesReceived:[_body length] totalBytesExpectedToReceive:_httpURLResponse.expectedContentLength];
+    if ([[_request delegate] respondsToSelector:@selector(request:didReceivedData:totalBytesReceived:totalBytesExectedToReceive:)]) {
+        [[_request delegate] request:_request didReceivedData:[data length] totalBytesReceived:[_body length] totalBytesExectedToReceive:_httpURLResponse.expectedContentLength];
     }
 }
 
-- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSHTTPURLResponse *)response {
-    RKResponseIgnoreDelegateIfCancelled();
-    RKLogDebug(@"NSHTTPURLResponse Status Code: %ld", (long) [response statusCode]);
+- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSHTTPURLResponse *)response {	
+    RKLogDebug(@"NSHTTPURLResponse Status Code: %d", [response statusCode]);
     RKLogDebug(@"Headers: %@", [response allHeaderFields]);
 	_httpURLResponse = [response retain];
-    [_request invalidateTimeoutTimer];
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection {
-    RKResponseIgnoreDelegateIfCancelled();
 	RKLogTrace(@"Read response body: %@", [self bodyAsString]);
 	[_request didFinishLoad:self];
 }
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error {
-    RKResponseIgnoreDelegateIfCancelled();
-    _failureError = [error retain];
-    [_request invalidateTimeoutTimer];
-    [_request didFailLoadWithError:_failureError];
+	_failureError = [error retain];
+	[_request didFailLoadWithError:_failureError];
 }
 
 - (NSInputStream *)connection:(NSURLConnection *)connection needNewBodyStream:(NSURLRequest *)request {
-    RKResponseIgnoreDelegateIfCancelled(nil);
     RKLogWarning(@"RestKit was asked to retransmit a new body stream for a request. Possible connection error or authentication challenge?");
     return nil;
 }
@@ -224,9 +220,7 @@ return __VA_ARGS__;                                                             
 // in connection:didReceiveResponse: to ensure that the RKRequestDelegate
 // callbacks get called in the correct order.
 - (void)connection:(NSURLConnection *)connection didSendBodyData:(NSInteger)bytesWritten totalBytesWritten:(NSInteger)totalBytesWritten totalBytesExpectedToWrite:(NSInteger)totalBytesExpectedToWrite {
-    RKResponseIgnoreDelegateIfCancelled();
-    [_request invalidateTimeoutTimer];
-    
+	
 	if ([[_request delegate] respondsToSelector:@selector(request:didSendBodyData:totalBytesWritten:totalBytesExpectedToWrite:)]) {
 		[[_request delegate] request:_request didSendBodyData:bytesWritten totalBytesWritten:totalBytesWritten totalBytesExpectedToWrite:totalBytesExpectedToWrite];
 	}
@@ -236,25 +230,12 @@ return __VA_ARGS__;                                                             
 	return [NSHTTPURLResponse localizedStringForStatusCode:[self statusCode]];
 }
 
-- (NSData *)body {
+- (NSData*)body {
 	return _body;
 }
 
-- (NSString *)bodyEncodingName {
-    return [_httpURLResponse textEncodingName];    
-}
-
-- (NSStringEncoding)bodyEncoding {
-    CFStringEncoding cfEncoding = kCFStringEncodingInvalidId;    
-    NSString *textEncodingName = [self bodyEncodingName];
-    if (textEncodingName) {
-        cfEncoding = CFStringConvertIANACharSetNameToEncoding((CFStringRef) textEncodingName);
-    }
-    return (cfEncoding ==  kCFStringEncodingInvalidId) ? self.request.defaultHTTPEncoding : CFStringConvertEncodingToNSStringEncoding(cfEncoding);
-}
-
-- (NSString *)bodyAsString {
-	return [[[NSString alloc] initWithData:self.body encoding:[self bodyEncoding]] autorelease];
+- (NSString*)bodyAsString {
+	return [[[NSString alloc] initWithData:self.body encoding:NSUTF8StringEncoding] autorelease];
 }
 
 - (id)bodyAsJSON {
@@ -270,7 +251,7 @@ return __VA_ARGS__;                                                             
     }
     id object = [parser objectFromString:[self bodyAsString] error:error];
     if (object == nil) {
-        if (error && *error) {
+        if (*error) {
             RKLogError(@"Unable to parse response body: %@", [*error localizedDescription]);
         }
         return nil;
@@ -292,30 +273,30 @@ return __VA_ARGS__;                                                             
 
 - (NSURL*)URL {
     if ([self wasLoadedFromCache]) {
-        return [NSURL URLWithString:[_responseHeaders valueForKey:RKRequestCacheURLKey]];
+        return [NSURL URLWithString:[_responseHeaders valueForKey:cacheURLKey]];
     }
 	return [_httpURLResponse URL];
 }
 
 - (NSString*)MIMEType {
     if ([self wasLoadedFromCache]) {
-        return [_responseHeaders valueForKey:RKRequestCacheMIMETypeKey];
+        return [_responseHeaders valueForKey:cacheMIMETypeKey];
     }
 	return [_httpURLResponse MIMEType];
 }
 
 - (NSInteger)statusCode {
     if ([self wasLoadedFromCache]) {
-        return [[_responseHeaders valueForKey:RKRequestCacheStatusCodeKey] intValue];
+        return [[_responseHeaders valueForKey:cacheResponseCodeKey] intValue];
     }
-    return ([_httpURLResponse respondsToSelector:@selector(statusCode)] ? [_httpURLResponse statusCode] : 200);
+	return [_httpURLResponse statusCode];
 }
 
 - (NSDictionary*)allHeaderFields {
 	if ([self wasLoadedFromCache]) {
 		return _responseHeaders;
 	}
-    return ([_httpURLResponse respondsToSelector:@selector(allHeaderFields)] ? [_httpURLResponse allHeaderFields] : nil);
+	return [_httpURLResponse allHeaderFields];
 }
 
 - (NSArray*)cookies {
@@ -360,10 +341,6 @@ return __VA_ARGS__;                                                             
 
 - (BOOL)isCreated {
 	return ([self statusCode] == 201);
-}
-
-- (BOOL)isNoContent {
-	return ([self statusCode] == 204);
 }
 
 - (BOOL)isNotModified {

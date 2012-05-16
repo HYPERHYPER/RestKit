@@ -3,7 +3,7 @@
 //  RKCatalog
 //
 //  Created by Blake Watters on 4/21/11.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2011 Two Toasters. All rights reserved.
 //
 
 #import <RestKit/RestKit.h>
@@ -11,8 +11,8 @@
 
 @implementation RKRequestQueueExample
 
-@synthesize requestQueue;
-@synthesize statusLabel;
+@synthesize queue = _queue;
+@synthesize statusLabel = _statusLabel;
 
 - (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil {
     self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
@@ -31,9 +31,8 @@
 // We have been dismissed -- clean up any open requests
 - (void)dealloc {
     [[RKClient sharedClient].requestQueue cancelRequestsWithDelegate:self];
-    [requestQueue cancelAllRequests];
-    [requestQueue release];
-    requestQueue = nil;
+    [_queue cancelAllRequests];
+    [_queue release];
     
     [super dealloc];
 }
@@ -52,44 +51,36 @@
 }
 
 - (IBAction)queueRequests {
-    RKRequestQueue *queue = [RKRequestQueue requestQueue];
+    RKRequestQueue* queue = [RKRequestQueue new];
     queue.delegate = self;
     queue.concurrentRequestsLimit = 1;
     queue.showsNetworkActivityIndicatorWhenBusy = YES;
     
     // Queue up 4 requests
-    RKRequest *request = [[RKClient sharedClient] requestWithResourcePath:@"/RKRequestQueueExample"];
-    request.delegate = self;
-    [queue addRequest:request];
-    
-    request = [[RKClient sharedClient] requestWithResourcePath:@"/RKRequestQueueExample"];
-    request.delegate = self;
-    [queue addRequest:request];
-    
-    request = [[RKClient sharedClient] requestWithResourcePath:@"/RKRequestQueueExample"];
-    request.delegate = self;
-    [queue addRequest:request];
-    
-    request = [[RKClient sharedClient] requestWithResourcePath:@"/RKRequestQueueExample"];
-    request.delegate = self;
-    [queue addRequest:request];
+    [queue addRequest:[[RKClient sharedClient] requestWithResourcePath:@"/RKRequestQueueExample" delegate:self]];
+    [queue addRequest:[[RKClient sharedClient] requestWithResourcePath:@"/RKRequestQueueExample" delegate:self]];
+    [queue addRequest:[[RKClient sharedClient] requestWithResourcePath:@"/RKRequestQueueExample" delegate:self]];
+    [queue addRequest:[[RKClient sharedClient] requestWithResourcePath:@"/RKRequestQueueExample" delegate:self]];
     
     // Start processing!
     [queue start];
-    self.requestQueue = queue;
+    
+    // Manage memory for our ad-hoc queue
+    self.queue = queue;
+    [queue release];
 }
 
 - (void)requestQueue:(RKRequestQueue *)queue didSendRequest:(RKRequest *)request {
-    statusLabel.text = [NSString stringWithFormat:@"RKRequestQueue %@ is current loading %d of %d requests", 
+    _statusLabel.text = [NSString stringWithFormat:@"RKRequestQueue %@ is current loading %d of %d requests", 
                          queue, [queue loadingCount], [queue count]];
 }
 
 - (void)requestQueueDidBeginLoading:(RKRequestQueue *)queue {
-    statusLabel.text = [NSString stringWithFormat:@"Queue %@ Began Loading...", queue];
+    _statusLabel.text = [NSString stringWithFormat:@"Queue %@ Began Loading...", queue];
 }
 
 - (void)requestQueueDidFinishLoading:(RKRequestQueue *)queue {
-    statusLabel.text = [NSString stringWithFormat:@"Queue %@ Finished Loading...", queue];
+    _statusLabel.text = [NSString stringWithFormat:@"Queue %@ Finished Loading...", queue];
 }
 
 @end

@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Blake Watters on 7/28/09.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2009 Two Toasters
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -22,385 +22,237 @@
 #import "RKRequest.h"
 
 /**
- Models the response portion of an HTTP request/response cycle
+ Models the response portion of an HTTP request/response cycle.
  */
 @interface RKResponse : NSObject {
-	RKRequest *_request;
-	NSHTTPURLResponse *_httpURLResponse;
-	NSMutableData *_body;
-	NSError *_failureError;
+	RKRequest* _request;
+	NSHTTPURLResponse* _httpURLResponse;
+	NSMutableData* _body;
+	NSError* _failureError;
 	BOOL _loading;
-	NSDictionary *_responseHeaders;
+	NSDictionary* _responseHeaders;
 }
 
-
-///-----------------------------------------------------------------------------
-/// @name Creating a Response
-///-----------------------------------------------------------------------------
-
 /**
- Initializes a new response object for a REST request.
- 
- @param request The request that the response being created belongs to.
- @return An RKResponse object with the request parameter set.
+ * The request that generated this response
  */
-- (id)initWithRequest:(RKRequest *)request;
+@property(nonatomic, readonly) RKRequest* request;
 
 /**
- Initializes a new response object from a cached request.
- 
- @param request The request that the response being created belongs to.
- @param body The data of the body of the response.
- @param headers A dictionary of the response's headers.
- @return An RKResponse object with the request, body, and header parameters set.
+ * The URL the response was loaded from
  */
-- (id)initWithRequest:(RKRequest *)request body:(NSData *)body headers:(NSDictionary *)headers;
+@property(nonatomic, readonly) NSURL* URL;
 
 /**
- Initializes a response object from the results of a synchronous request.
- 
- @param request The request that the response being created belongs to.
- @param URLResponse The response from the NSURLConnection call containing the
- headers and HTTP status code.
- @param body The data of the body of the response.
- @param error The error returned from the NSURLConnection call, if any.
- @return An RKResponse object with the results of the synchronous request
- derived from the NSHTTPURLResponse and body passed.
+ * The MIME Type of the response body
  */
-- (id)initWithSynchronousRequest:(RKRequest *)request URLResponse:(NSHTTPURLResponse *)URLResponse body:(NSData *)body error:(NSError *)error;
-
-
-///-----------------------------------------------------------------------------
-/// @name Accessing the Request
-///-----------------------------------------------------------------------------
+@property(nonatomic, readonly) NSString* MIMEType;
 
 /**
- The request that generated this response.
+ * The status code of the HTTP response
  */
-@property (nonatomic, readonly) RKRequest *request;
+@property(nonatomic, readonly) NSInteger statusCode;
 
 /**
- The URL the response was loaded from.
+ * Return a dictionary of headers sent with the HTTP response
  */
-@property (nonatomic, readonly) NSURL *URL;
-
-
-///-----------------------------------------------------------------------------
-/// @name Accessing the Response Components
-///-----------------------------------------------------------------------------
+@property(nonatomic, readonly) NSDictionary* allHeaderFields;
 
 /**
- The status code of the HTTP response.
+ * The data returned as the response body
  */
-@property (nonatomic, readonly) NSInteger statusCode;
+@property(nonatomic, readonly) NSData* body;
 
 /**
- Return a dictionary of headers sent with the HTTP response.
+ * The error returned if the URL connection fails
  */
-@property (nonatomic, readonly) NSDictionary *allHeaderFields;
+@property(nonatomic, readonly) NSError* failureError;
 
 /**
- An NSArray of NSHTTPCookie objects associated with the response.
+ * An NSArray of NSHTTPCookie objects associated with the response
  */
-@property (nonatomic, readonly) NSArray *cookies;
+@property(nonatomic, readonly) NSArray* cookies;
 
 /**
- Returns the localized human readable representation of the HTTP Status Code
- returned.
+ * Initialize a new response object for a REST request
  */
-- (NSString *)localizedStatusCodeString;
-
-
-///-----------------------------------------------------------------------------
-/// @name Accessing Common Headers
-///-----------------------------------------------------------------------------
+- (id)initWithRequest:(RKRequest*)request;
 
 /**
- Returns the value of 'Content-Type' HTTP header
+ * Initialize a new response object from a cached request
  */
-- (NSString *)contentType;
+- (id)initWithRequest:(RKRequest*)request body:(NSData*)body headers:(NSDictionary*)headers;
 
 /**
- Returns the value of the 'Content-Length' HTTP header
+ * Initializes a response object from the results of a synchronous request
  */
-- (NSString *)contentLength;
+- (id)initWithSynchronousRequest:(RKRequest*)request URLResponse:(NSHTTPURLResponse*)URLResponse body:(NSData*)body error:(NSError*)error;
 
 /**
- Returns the value of the 'Location' HTTP Header
+ * Return the localized human readable representation of the HTTP Status Code returned
  */
-- (NSString *)location;
-
-
-///-----------------------------------------------------------------------------
-/// @name Reading the Body Content
-///-----------------------------------------------------------------------------
+- (NSString*)localizedStatusCodeString;
 
 /**
- The data returned as the response body.
+ * Return the response body as an NSString
  */
-@property (nonatomic, readonly) NSData *body;
+- (NSString*)bodyAsString;
 
 /**
- Returns the response body as an NSString
- */
-- (NSString *)bodyAsString;
-
-/**
- Returns the response body parsed as JSON into an object
- @bug **DEPRECATED** in v0.9.4
+ * Return the response body parsed as JSON into an object
+ * @deprecated in version 2.0
  */
 - (id)bodyAsJSON DEPRECATED_ATTRIBUTE;
 
 /**
- Returns the response body parsed as JSON into an object
- 
- @param error An NSError to populate if something goes wrong while parsing the
- body JSON into an object.
+ * Return the response body parsed as JSON into an object
  */
-- (id)parsedBody:(NSError **)error;
-
-
-///-----------------------------------------------------------------------------
-/// @name Handling Errors
-///-----------------------------------------------------------------------------
+- (id)parsedBody:(NSError**)error;
 
 /**
- The error returned if the URL connection fails.
+ * Will determine if there is an error object and use it's localized message
  */
-@property (nonatomic, readonly) NSError *failureError;
+- (NSString*)failureErrorDescription;
 
 /**
- Determines if there is an error object and uses it's localized message
- 
- @return A string of the localized error message.
- */
-- (NSString *)failureErrorDescription;
-
-/**
- Indicates whether the response was loaded from RKCache
- 
- @return YES if the response was loaded from the cache
+ * Indicates whether the response was loaded from RKCache
  */
 - (BOOL)wasLoadedFromCache;
 
-
-///-----------------------------------------------------------------------------
-/// @name Determining the Status Range of the Response
-///-----------------------------------------------------------------------------
-
 /**
- Indicates that the connection failed to reach the remote server. The details of
- the failure are available on the failureError reader.
- 
- @return YES if the connection failed to reach the remote server.
+ * Indicates that the connection failed to reach the remote server. The details of the failure
+ * are available on the failureError reader.
  */
 - (BOOL)isFailure;
 
 /**
- Indicates an invalid HTTP response code less than 100 or greater than 600
- 
- @return YES if the HTTP response code is less than 100 or greater than 600
+ * Indicates an invalid HTTP response code less than 100 or greater than 600
  */
 - (BOOL)isInvalid;
 
 /**
- Indicates an informational HTTP response code between 100 and 199
- 
- @return YES if the HTTP response code is between 100 and 199
+ * Indicates an HTTP response code between 100 and 199
  */
 - (BOOL)isInformational;
 
 /**
- Indicates an HTTP response code between 200 and 299.
- 
- Confirms that the server received, understood, accepted and processed the
- request successfully.
- 
- @return YES if the HTTP response code is between 200 and 299
+ * Indicates an HTTP response code between 200 and 299
  */
 - (BOOL)isSuccessful;
 
 /**
- Indicates an HTTP response code between 300 and 399.
- 
- This class of status code indicates that further action needs to be taken by
- the user agent in order to fulfil the request. The action required may be
- carried out by the user agent without interaction with the user if and only if
- the method used in the second request is GET or HEAD.
- 
- @return YES if the HTTP response code is between 300 and 399.
+ * Indicates an HTTP response code between 300 and 399
  */
 - (BOOL)isRedirection;
 
 /**
- Indicates an HTTP response code between 400 and 499.
- 
- This status code is indented for cases in which the client seems to have erred.
- 
- @return YES if the HTTP response code is between 400 and 499.
+ * Indicates an HTTP response code between 400 and 499
  */
 - (BOOL)isClientError;
 
 /**
- Indicates an HTTP response code between 500 and 599.
- 
- This state code occurs when the server failed to fulfill an apparently valid
- request.
- 
- @return YES if the HTTP response code is between 500 and 599.
+ * Indicates an HTTP response code between 500 and 599
  */
 - (BOOL)isServerError;
 
-
-///-----------------------------------------------------------------------------
-/// @name Determining Specific Statuses
-///-----------------------------------------------------------------------------
-
 /**
- Indicates that the response is either a server or a client error.
- 
- @return YES if the response is either a server or client error, with a response
- code between 400 and 599.
+ * Indicates that the response is either a server or a client error
  */
 - (BOOL)isError;
 
 /**
- Indicates an HTTP response code of 200.
- 
- @return YES if the response is 200 OK.
+ * Indicates an HTTP response code of 200
  */
 - (BOOL)isOK;
 
 /**
- Indicates an HTTP response code of 201.
- 
- @return YES if the response is 201 Created.
+ * Indicates an HTTP response code of 201
  */
 - (BOOL)isCreated;
 
 /**
- Indicates an HTTP response code of 204.
- 
- @return YES if the response is 204 No Content.
- */
-- (BOOL)isNoContent;
-
-/**
- Indicates an HTTP response code of 304.
- 
- @return YES if the response is 304 Not Modified.
+ * Indicates an HTTP response code of 304
  */
 - (BOOL)isNotModified;
 
 /**
- Indicates an HTTP response code of 401.
- 
- @return YES if the response is 401 Unauthorized.
+ * Indicates an HTTP response code of 401
  */
 - (BOOL)isUnauthorized;
 
 /**
- Indicates an HTTP response code of 403.
- 
- @return YES if the response is 403 Forbidden.
+ * Indicates an HTTP response code of 403
  */
 - (BOOL)isForbidden;
 
 /**
- Indicates an HTTP response code of 404.
- 
- @return YES if the response is 404 Not Found.
+ * Indicates an HTTP response code of 404
  */
 - (BOOL)isNotFound;
 
 /**
- Indicates an HTTP response code of 409.
- 
- @return YES if the response is 409 Conflict.
+ * Indicates an HTTP response code of 409
  */
 - (BOOL)isConflict;
 
 /**
- Indicates an HTTP response code of 410.
- 
- @return YES if the response is 410 Gone.
+ * Indicates an HTTP response code of 410
  */
 - (BOOL)isGone;
 
 /**
- Indicates an HTTP response code of 422.
- 
- @return YES if the response is 422 Unprocessable Entity.
+ * Indicates an HTTP response code of 422
  */
 - (BOOL)isUnprocessableEntity;
 
 /**
- Indicates an HTTP response code of 301, 302, 303 or 307.
- 
- @return YES if the response requires a redirect to finish processing.
+ * Indicates an HTTP response code of 301, 302, 303 or 307
  */
 - (BOOL)isRedirect;
 
 /**
- Indicates an empty HTTP response code of 201, 204, or 304
- 
- @return YES if the response body is empty.
+ * Indicates an empty HTTP response code of 201, 204, or 304
  */
 - (BOOL)isEmpty;
 
 /**
- Indicates an HTTP response code of 503
- 
- @return YES if the response is 503 Service Unavailable.
+ * Indicates an HTTP response code of 503
  */
 - (BOOL)isServiceUnavailable;
 
-
-///-----------------------------------------------------------------------------
-/// @name Accessing the Response's MIME Type and Encoding
-///-----------------------------------------------------------------------------
-
 /**
- The MIME Type of the response body.
+ * Returns the value of 'Content-Type' HTTP header
  */
-@property (nonatomic, readonly) NSString *MIMEType;
+- (NSString*)contentType;
 
 /**
- True when the server turned an HTML response.
- 
- @return YES when the MIME type is text/html.
+ * Returns the value of the 'Content-Length' HTTP header
+ */
+- (NSString*)contentLength;
+
+/**
+ * Returns the value of the 'Location' HTTP Header
+ */
+- (NSString*)location;
+
+/**
+ * True when the server turned an HTML response (MIME type is text/html)
  */
 - (BOOL)isHTML;
 
 /**
- True when the server turned an XHTML response
- 
- @return YES when the MIME type is application/xhtml+xml.
+ * True when the server turned an XHTML response (MIME type is application/xhtml+xml)
  */
 - (BOOL)isXHTML;
 
 /**
- True when the server turned an XML response
- 
- @return YES when the MIME type is application/xml.
+ * True when the server turned an XML response (MIME type is application/xml)
  */
 - (BOOL)isXML;
 
 /**
- True when the server turned an JSON response
- 
- @return YES when the MIME type is application/json.
+ * True when the server turned an JSON response (MIME type is application/json)
  */
 - (BOOL)isJSON;
-
-/**
- Returns the name of the string encoding used for the response body
- */
-- (NSString *)bodyEncodingName;
-
-/**
- Returns the string encoding used for the response body
- */
-- (NSStringEncoding)bodyEncoding;
 
 @end

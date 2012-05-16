@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Greg Combs on 9/2/11.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2011 RestKit
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -33,14 +33,14 @@
  @see RKMakePathWithObject
  @see RKRouter
  */
-@interface RKPathMatcher : NSObject <NSCopying> {
+@interface RKPathMatcher : NSObject {
 @private
     SOCPattern *socPattern_;
     NSString *sourcePath_;
     NSString *rootPath_;
     NSDictionary *queryParameters_;
 }
-@property (copy, readonly) NSDictionary *queryParameters;
+@property (retain,readonly) NSDictionary *queryParameters;
 
 /**
  Creates an RKPathMatcher starting from a resource path string.  This method should be followed by 

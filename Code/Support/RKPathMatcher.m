@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Greg Combs on 9/2/11.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2011 RestKit
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -20,13 +20,9 @@
 
 #import "RKPathMatcher.h"
 #import "SOCKit.h"
-#import "NSString+RKAdditions.h"
+#import "NSString+RestKit.h"
 #import "NSDictionary+RKAdditions.h"
 #import "RKLog.h"
-
-BOOL RKPathUsesParentheticalParameters(NSString *path);
-NSString *RKPathPatternFindAndReplaceParensWithColons(NSString *pattern);
-NSString *RKEncodeURLString(NSString *unencodedString);
 
 BOOL RKPathUsesParentheticalParameters(NSString *path) {
     NSCharacterSet *parens = [NSCharacterSet characterSetWithCharactersInString:@"()"];
@@ -58,7 +54,7 @@ NSString *RKEncodeURLString(NSString *unencodedString) {
 @property (nonatomic,retain) SOCPattern *socPattern;
 @property (nonatomic,copy) NSString *sourcePath;
 @property (nonatomic,copy) NSString *rootPath;
-@property (copy,readwrite) NSDictionary *queryParameters;
+@property (retain,readwrite) NSDictionary *queryParameters;
 @end
 
 @implementation RKPathMatcher
@@ -66,16 +62,6 @@ NSString *RKEncodeURLString(NSString *unencodedString) {
 @synthesize sourcePath=sourcePath_;
 @synthesize rootPath=rootPath_;
 @synthesize queryParameters=queryParameters_;
-
-- (id)copyWithZone:(NSZone *)zone {
-    RKPathMatcher* copy = [[[self class] allocWithZone:zone] init];
-    copy.socPattern = self.socPattern;
-    copy.sourcePath = self.sourcePath;
-    copy.rootPath = self.rootPath;
-    copy.queryParameters = self.queryParameters;
-    
-    return copy;
-}
 
 - (void)dealloc {
     self.socPattern = nil;
@@ -126,11 +112,12 @@ NSString *RKEncodeURLString(NSString *unencodedString) {
     if (![self matches])
         return NO;
     if (!arguments) {
+        RKLogWarning(@"The parsed arguments dictionary reference is nil.");
         return YES;
     }
     NSDictionary *extracted = [self.socPattern parameterDictionaryFromSourceString:self.rootPath];
     if (extracted)
-        [argumentsCollection addEntriesFromDictionary:[extracted dictionaryByReplacingPercentEscapesInEntries]];
+        [argumentsCollection addEntriesFromDictionary:[extracted removePercentEscapesFromKeysAndObjects]];
     *arguments = argumentsCollection;
     return YES;
 }

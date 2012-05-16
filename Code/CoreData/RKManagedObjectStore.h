@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Blake Watters on 9/22/09.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2009 Two Toasters
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@
 //
 
 #import <CoreData/CoreData.h>
-#import "RKManagedObjectMapping.h"
-#import "RKManagedObjectMappingCache.h"
+#import "RKManagedObjectCache.h"
 
 @class RKManagedObjectStore;
 
@@ -52,6 +51,7 @@ extern NSString* const RKManagedObjectStoreDidFailSaveNotification;
 	NSString* _pathToStoreFile;
     NSManagedObjectModel* _managedObjectModel;
 	NSPersistentStoreCoordinator* _persistentStoreCoordinator;
+	NSObject<RKManagedObjectCache>* _managedObjectCache;
 }
 
 // The delegate for this object store
@@ -67,40 +67,18 @@ extern NSString* const RKManagedObjectStoreDidFailSaveNotification;
 @property (nonatomic, readonly) NSManagedObjectModel* managedObjectModel;
 @property (nonatomic, readonly) NSPersistentStoreCoordinator* persistentStoreCoordinator;
 
-///-----------------------------------------------------------------------------
-/// @name Accessing the Default Object Store
-///-----------------------------------------------------------------------------
-
-+ (RKManagedObjectStore *)defaultObjectStore;
-+ (void)setDefaultObjectStore:(RKManagedObjectStore *)objectStore;
-
-///-----------------------------------------------------------------------------
-/// @name Deleting Store Files
-///-----------------------------------------------------------------------------
-
 /**
- Deletes the SQLite file backing an RKManagedObjectStore instance at a given path.
-
- @param path The complete path to the store file to delete.
+ * Managed object cache provides support for automatic removal of objects pruned
+ * from a server side load. Also used to provide offline object loading
  */
-+ (void)deleteStoreAtPath:(NSString *)path;
+@property (nonatomic, retain) NSObject<RKManagedObjectCache>* managedObjectCache;
 
-/**
- Deletes the SQLite file backing an RKManagedObjectStore instance with a given
- filename within the application data directory.
-
- @param filename The name of the file within the application data directory backing a managed object store.
+/*
+ * This returns an appropriate managed object context for this object store.
+ * Because of the intrecacies of how Core Data works across threads it returns
+ * a different NSManagedObjectContext for each thread.
  */
-+ (void)deleteStoreInApplicationDataDirectoryWithFilename:(NSString *)filename;
-
-///-----------------------------------------------------------------------------
-/// @name Initializing an Object Store
-///-----------------------------------------------------------------------------
-
-/**
-
- */
-@property (nonatomic, retain) NSObject<RKManagedObjectCacheing> *cacheStrategy;
+@property (nonatomic, readonly) NSManagedObjectContext* managedObjectContext;
 
 /**
  * Initialize a new managed object store with a SQLite database with the filename specified
@@ -133,10 +111,10 @@ extern NSString* const RKManagedObjectStoreDidFailSaveNotification;
 /**
  * Save the current contents of the managed object store
  */
-- (BOOL)save:(NSError **)error;
+- (NSError*)save;
 
 /**
- * This deletes and recreates the managed object context and
+ * This deletes and recreates the managed object context and 
  * persistant store, effectively clearing all data
  */
 - (void)deletePersistantStoreUsingSeedDatabaseName:(NSString *)seedFile;
@@ -153,26 +131,19 @@ extern NSString* const RKManagedObjectStoreDidFailSaveNotification;
  */
 - (NSArray*)objectsWithIDs:(NSArray*)objectIDs;
 
-///-----------------------------------------------------------------------------
-/// @name Retrieving Managed Object Contexts
-///-----------------------------------------------------------------------------
+/**
+ * Retrieves a model object from the object store given a Core Data entity and
+ * the primary key attribute and value for the desired object. Internally, this method
+ * constructs a thread-local cache of managed object instances to avoid repeated fetches from the store
+ */
+- (NSManagedObject*)findOrCreateInstanceOfEntity:(NSEntityDescription*)entity withPrimaryKeyAttribute:(NSString*)primaryKeyAttribute andValue:(id)primaryKeyValue;
 
 /**
- Retrieves the Managed Object Context for the main thread that was initialized when
- the object store was created.
+ * Returns an array of objects that the 'live' at the specified resource path. Usage of this
+ * method requires that you have provided an implementation of the managed object cache
+ *
+ * See managedObjectCache above
  */
-@property (nonatomic, retain, readonly) NSManagedObjectContext *primaryManagedObjectContext;
-
-/**
- Instantiates a new managed object context
- */
-- (NSManagedObjectContext *)newManagedObjectContext;
-
-/*
- * This returns an appropriate managed object context for this object store.
- * Because of the intrecacies of how Core Data works across threads it returns
- * a different NSManagedObjectContext for each thread.
- */
-- (NSManagedObjectContext *)managedObjectContextForCurrentThread;
+- (NSArray*)objectsForResourcePath:(NSString*)resourcePath;
 
 @end

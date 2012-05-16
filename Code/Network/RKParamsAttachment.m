@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Blake Watters on 8/6/09.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2009 Two Toasters
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@
 
 #import "RKParamsAttachment.h"
 #import "RKLog.h"
-#import "NSData+RKAdditions.h"
+#import "NSData+MD5.h"
 #import "FileMD5Hash.h"
-#import "NSString+RKAdditions.h"
+#import "../Support/NSString+RestKit.h"
 
 // Set Logging Component
 #undef RKLogComponent
@@ -39,7 +39,6 @@ extern NSString* const kRKStringBoundary;
 @synthesize fileName = _fileName;
 @synthesize MIMEType = _MIMEType;
 @synthesize name = _name;
-@synthesize value = _value;
 
 - (id)initWithName:(NSString *)name {
     self = [self init];
@@ -61,7 +60,6 @@ extern NSString* const kRKStringBoundary;
         
 		_bodyStream    = [[NSInputStream alloc] initWithData:_body];
 		_bodyLength    = [_body length];
-        _value         = [value retain];
 	}
 	
 	return self;
@@ -103,7 +101,6 @@ extern NSString* const kRKStringBoundary;
 }
 
 - (void)dealloc {
-    [_value release];
     [_name release];    
     [_body release];
     [_filePath release];
@@ -206,6 +203,7 @@ extern NSString* const kRKStringBoundary;
     return sent;
 }
 
+// NOTE: Cannot handle MD5 for files. We don't want to read the contents into memory
 - (NSString *)MD5 {
     if (_body) {
         return [_body MD5];

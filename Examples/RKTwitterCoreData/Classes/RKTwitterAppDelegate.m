@@ -3,11 +3,11 @@
 //  RKTwitter
 //
 //  Created by Blake Watters on 9/5/10.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright Two Toasters 2010. All rights reserved.
 //
 
 #import <RestKit/RestKit.h>
-#import <RestKit/CoreData.h>
+#import <RestKit/CoreData/CoreData.h>
 #import "RKTwitterAppDelegate.h"
 #import "RKTwitterViewController.h"
 #import "RKTStatus.h"
@@ -19,7 +19,7 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Initialize RestKit
-	RKObjectManager* objectManager = [RKObjectManager managerWithBaseURLString:@"http://twitter.com"];
+	RKObjectManager* objectManager = [RKObjectManager objectManagerWithBaseURL:@"http://twitter.com"];
     
     // Enable automatic network activity indicator management
     objectManager.client.requestQueue.showsNetworkActivityIndicatorWhenBusy = YES;
@@ -41,7 +41,7 @@
      name. This allows us to map back Twitter user objects directly onto NSManagedObject instances --
      there is no backing model class!
      */
-    RKManagedObjectMapping* userMapping = [RKManagedObjectMapping mappingForEntityWithName:@"RKTUser" inManagedObjectStore:objectManager.objectStore];
+    RKManagedObjectMapping* userMapping = [RKManagedObjectMapping mappingForEntityWithName:@"RKTUser"];
     userMapping.primaryKeyAttribute = @"userID";
     [userMapping mapKeyPath:@"id" toAttribute:@"userID"];
     [userMapping mapKeyPath:@"screen_name" toAttribute:@"screenName"];
@@ -52,7 +52,7 @@
      for you using the Active Record pattern where the class name corresponds to the entity name within Core Data.
      Twitter status objects will be mapped onto RKTStatus instances.
      */
-    RKManagedObjectMapping* statusMapping = [RKManagedObjectMapping mappingForClass:[RKTStatus class] inManagedObjectStore:objectManager.objectStore];
+    RKManagedObjectMapping* statusMapping = [RKManagedObjectMapping mappingForClass:[RKTStatus class]];
     statusMapping.primaryKeyAttribute = @"statusID";
     [statusMapping mapKeyPathsToAttributes:@"id", @"statusID",
      @"created_at", @"createdAt",
@@ -68,7 +68,8 @@
     [RKObjectMapping addDefaultDateFormatterForString:@"E MMM d HH:mm:ss Z y" inTimeZone:nil];
     
     // Register our mappings with the provider
-    [objectManager.mappingProvider setObjectMapping:statusMapping forResourcePathPattern:@"/status/user_timeline/:username"];
+    [objectManager.mappingProvider setMapping:userMapping forKeyPath:@"user"];
+    [objectManager.mappingProvider setMapping:statusMapping forKeyPath:@"status"];
     
     // Uncomment this to use XML, comment it to use JSON
     //  objectManager.acceptMIMEType = RKMIMETypeXML;

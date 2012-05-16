@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Blake Watters on 8/14/11.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2011 RestKit
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 //  limitations under the License.
 //
 
-#import "RKObjectPropertyInspector.h"
+#import "../ObjectMapping/RKObjectPropertyInspector.h"
 
 @interface RKObjectPropertyInspector (CoreData)
 

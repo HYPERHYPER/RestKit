@@ -10,10 +10,11 @@
 
 #import <objc/runtime.h>
 #import "NSManagedObject+ActiveRecord.h"
-#import "RKManagedObjectStore.h"
-#import "RKLog.h"
-#import "RKFixCategoryBug.h"
-#import "NSEntityDescription+RKAdditions.h"
+#import "../ObjectMapping/RKObjectManager.h"
+#import "../Support/RKLog.h"
+#import "../Support/RKFixCategoryBug.h"
+
+RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 
 // Set Logging Component
 #undef RKLogComponent
@@ -22,38 +23,19 @@
 static NSUInteger const kActiveRecordDefaultBatchSize = 10;
 static NSNumber *defaultBatchSize = nil;
 
-static NSManagedObjectContext *defaultContext = nil;
-
-RK_FIX_CATEGORY_BUG(NSManagedObjectContext_ActiveRecord)
-
-@implementation NSManagedObjectContext (ActiveRecord)
-
-+ (NSManagedObjectContext *)defaultContext {
-    return defaultContext;
-}
-
-+ (void)setDefaultContext:(NSManagedObjectContext *)newDefaultContext {
-    [newDefaultContext retain];
-    [defaultContext release];
-    defaultContext = newDefaultContext;
-}
-
-+ (NSManagedObjectContext *)contextForCurrentThread {
-    NSAssert([RKManagedObjectStore defaultObjectStore], @"[RKManagedObjectStore defaultObjectStore] cannot be nil");
-    return [[RKManagedObjectStore defaultObjectStore] managedObjectContextForCurrentThread];
-}
-
-@end
-
-RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
-
 @implementation NSManagedObject (ActiveRecord)
 
 #pragma mark - RKManagedObject methods
 
++ (NSManagedObjectContext*)managedObjectContext {
+    NSAssert([RKObjectManager sharedManager], @"[RKObjectManager sharedManager] cannot be nil");
+    NSAssert([RKObjectManager sharedManager].objectStore, @"[RKObjectManager sharedManager].objectStore cannot be nil");
+	return [[[RKObjectManager sharedManager] objectStore] managedObjectContext];
+}
+
 + (NSEntityDescription*)entity {
 	NSString* className = [NSString stringWithCString:class_getName([self class]) encoding:NSASCIIStringEncoding];
-	return [NSEntityDescription entityForName:className inManagedObjectContext:[NSManagedObjectContext contextForCurrentThread]];
+	return [NSEntityDescription entityForName:className inManagedObjectContext:[self managedObjectContext]];
 }
 
 + (NSFetchRequest*)fetchRequest {
@@ -65,20 +47,11 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 
 + (NSArray*)objectsWithFetchRequest:(NSFetchRequest*)fetchRequest {
 	NSError* error = nil;
-	NSArray* objects = [[NSManagedObjectContext contextForCurrentThread] executeFetchRequest:fetchRequest error:&error];
+	NSArray* objects = [[self managedObjectContext] executeFetchRequest:fetchRequest error:&error];
 	if (objects == nil) {
 		RKLogError(@"Error: %@", [error localizedDescription]);
 	}
 	return objects;
-}
-
-+ (NSUInteger)countOfObjectsWithFetchRequest:(NSFetchRequest*)fetchRequest {
-	NSError* error = nil;
-	NSUInteger objectCount = [[NSManagedObjectContext contextForCurrentThread] countForFetchRequest:fetchRequest error:&error];
-	if (objectCount	== NSNotFound) {
-		RKLogError(@"Error: %@", [error localizedDescription]);
-	}
-	return objectCount;
 }
 
 + (NSArray*)objectsWithFetchRequests:(NSArray*)fetchRequests {
@@ -119,7 +92,7 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 
 + (NSUInteger)count:(NSError**)error {
 	NSFetchRequest* fetchRequest = [self fetchRequest];
-	return [[NSManagedObjectContext contextForCurrentThread] countForFetchRequest:fetchRequest error:error];
+	return [[self managedObjectContext] countForFetchRequest:fetchRequest error:error];
 }
 
 + (NSUInteger)count {
@@ -128,7 +101,7 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 }
 
 + (id)object {
-	id object = [[self alloc] initWithEntity:[self entity] insertIntoManagedObjectContext:[NSManagedObjectContext contextForCurrentThread]];
+	id object = [[self alloc] initWithEntity:[self entity] insertIntoManagedObjectContext:[self managedObjectContext]];
 	return [object autorelease];
 }
 
@@ -137,32 +110,17 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
     return [vals count] == 0;
 }
 
-+ (id)findByPrimaryKey:(id)primaryKeyValue inContext:(NSManagedObjectContext *)context {
-    NSEntityDescription *entity = [self entityDescriptionInContext:context];
-    NSString *primaryKeyAttribute = entity.primaryKeyAttribute;
-    if (! primaryKeyAttribute) {
-        RKLogWarning(@"Attempt to findByPrimaryKey for entity with nil primaryKeyAttribute. Set the primaryKeyAttribute and try again! %@", entity);
-        return nil;
-    }
-
-    return [self findFirstByAttribute:primaryKeyAttribute withValue:primaryKeyValue inContext:context];
-}
-
-+ (id)findByPrimaryKey:(id)primaryKeyValue {
-    return [self findByPrimaryKey:primaryKeyValue inContext:[NSManagedObjectContext contextForCurrentThread]];
-}
-
 #pragma mark - MagicalRecord Ported Methods
 
 + (NSManagedObjectContext*)currentContext; {
-    return [NSManagedObjectContext contextForCurrentThread];
+    return [self managedObjectContext];
 }
 
 + (void)setDefaultBatchSize:(NSUInteger)newBatchSize
 {
 	@synchronized(defaultBatchSize)
 	{
-		defaultBatchSize = [NSNumber numberWithUnsignedInteger:newBatchSize];
+		defaultBatchSize = [NSNumber numberWithInt:newBatchSize];
 	}
 }
 
@@ -202,20 +160,25 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 			}
 		}
 		RKLogError(@"Error Domain: %@", [error domain]);
-		RKLogError(@"Recovery Suggestion: %@", [error localizedRecoverySuggestion]);
+		RKLogError(@"Recovery Suggestion: %@", [error localizedRecoverySuggestion]);	
 	}
 }
+
+//- (void)handleErrors:(NSError *)error
+//{
+//	[[self class] handleErrors:error];
+//}
 
 + (NSArray *)executeFetchRequest:(NSFetchRequest *)request inContext:(NSManagedObjectContext *)context
 {
 	NSError *error = nil;
-
+	
 	NSArray *results = [context executeFetchRequest:request error:&error];
 	[self handleErrors:error];
-	return results;
+	return results;	
 }
 
-+ (NSArray *)executeFetchRequest:(NSFetchRequest *)request
++ (NSArray *)executeFetchRequest:(NSFetchRequest *)request 
 {
 	return [self executeFetchRequest:request inContext:[self currentContext]];
 }
@@ -223,7 +186,7 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 + (id)executeFetchRequestAndReturnFirstObject:(NSFetchRequest *)request inContext:(NSManagedObjectContext *)context
 {
 	[request setFetchLimit:1];
-
+	
 	NSArray *results = [self executeFetchRequest:request inContext:context];
 	if ([results count] == 0)
 	{
@@ -250,8 +213,16 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 
 + (NSEntityDescription *)entityDescriptionInContext:(NSManagedObjectContext *)context
 {
-    NSString *entityName = NSStringFromClass([self class]);
-    return [NSEntityDescription entityForName:entityName inManagedObjectContext:context];
+    if ([self respondsToSelector:@selector(entityInManagedObjectContext:)])
+    {
+        NSEntityDescription *entity = [self performSelector:@selector(entityInManagedObjectContext:)withObject:context];
+        return entity;
+    }
+    else
+    {
+        NSString *entityName = NSStringFromClass([self class]);
+        return [NSEntityDescription entityForName:entityName inManagedObjectContext:context];
+    }
 }
 
 + (NSEntityDescription *)entityDescription
@@ -263,11 +234,11 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 {
 	NSEntityDescription *description = [self entityDescription];
 	NSMutableArray *propertiesWanted = [NSMutableArray array];
-
+	
 	if (properties)
 	{
 		NSDictionary *propDict = [description propertiesByName];
-
+		
 		for (NSString *propertyName in properties)
 		{
 			NSPropertyDescription *property = [propDict objectForKey:propertyName];
@@ -287,7 +258,7 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 + (NSArray *)sortAscending:(BOOL)ascending attributes:(id)attributesToSortBy, ...
 {
 	NSMutableArray *attributes = [NSMutableArray array];
-
+	
 	if ([attributesToSortBy isKindOfClass:[NSArray class]])
 	{
 		id attributeName;
@@ -300,7 +271,7 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 			[sortDescriptor release];
 		}
 		va_end(variadicArguments);
-
+        
 	}
 	else if ([attributesToSortBy isKindOfClass:[NSString class]])
 	{
@@ -309,7 +280,7 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 		[attributes addObject:[[[NSSortDescriptor alloc] initWithKey:attributesToSortBy ascending:ascending] autorelease] ];
 		va_end(variadicArguments);
 	}
-
+	
 	return attributes;
 }
 
@@ -327,8 +298,8 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 {
 	NSFetchRequest *request = [[[NSFetchRequest alloc] init] autorelease];
 	[request setEntity:[self entityDescriptionInContext:context]];
-
-	return request;
+	
+	return request;	
 }
 
 + (NSFetchRequest *)createFetchRequest
@@ -344,8 +315,8 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 	NSError *error = nil;
 	NSUInteger count = [context countForFetchRequest:[self createFetchRequestInContext:context] error:&error];
 	[self handleErrors:error];
-
-	return [NSNumber numberWithUnsignedInteger:count];
+	
+	return [NSNumber numberWithUnsignedInteger:count];	
 }
 
 + (NSNumber *)numberOfEntities
@@ -358,16 +329,16 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 	NSError *error = nil;
 	NSFetchRequest *request = [self createFetchRequestInContext:context];
 	[request setPredicate:searchTerm];
-
+	
 	NSUInteger count = [context countForFetchRequest:request error:&error];
 	[self handleErrors:error];
 	
-	return [NSNumber numberWithUnsignedInteger:count];	
+	return [NSNumber numberWithUnsignedInt:count];	
 }
 
 + (NSNumber *)numberOfEntitiesWithPredicate:(NSPredicate *)searchTerm;
 {
-	return [self numberOfEntitiesWithPredicate:searchTerm
+	return [self numberOfEntitiesWithPredicate:searchTerm 
 									 inContext:[self currentContext]];
 }
 
@@ -397,7 +368,7 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 {
     NSFetchRequest *request = [self createFetchRequestInContext:context];
     [request setPredicate:[NSPredicate predicateWithFormat:@"%K = %@", property, value]];
-
+    
     return request;
 }
 
@@ -411,7 +382,7 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
     NSFetchRequest *request = [self createFetchRequestInContext:context];
     [request setPredicate:searchTerm];
     [request setFetchLimit:1];
-
+    
     return request;
 }
 
@@ -423,8 +394,9 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 + (NSFetchRequest *)requestFirstByAttribute:(NSString *)attribute withValue:(id)searchValue inContext:(NSManagedObjectContext *)context;
 {
     NSFetchRequest *request = [self createFetchRequestInContext:context];
+    [request setPropertiesToFetch:[self propertiesNamed:[NSArray arrayWithObject:attribute]]];
     [request setPredicate:[NSPredicate predicateWithFormat:@"%K = %@", attribute, searchValue]];
-
+    
     return request;
 }
 
@@ -436,17 +408,17 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 + (NSFetchRequest *)requestAllSortedBy:(NSString *)sortTerm ascending:(BOOL)ascending inContext:(NSManagedObjectContext *)context
 {
 	NSFetchRequest *request = [self requestAllInContext:context];
-
+	
 	NSSortDescriptor *sortBy = [[NSSortDescriptor alloc] initWithKey:sortTerm ascending:ascending];
 	[request setSortDescriptors:[NSArray arrayWithObject:sortBy]];
 	[sortBy release];
-
+	
 	return request;
 }
 
 + (NSFetchRequest *)requestAllSortedBy:(NSString *)sortTerm ascending:(BOOL)ascending
 {
-	return [self requestAllSortedBy:sortTerm
+	return [self requestAllSortedBy:sortTerm 
 						  ascending:ascending
 						  inContext:[self currentContext]];
 }
@@ -457,21 +429,21 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 	[request setPredicate:searchTerm];
 	[request setIncludesSubentities:NO];
 	[request setFetchBatchSize:[self defaultBatchSize]];
-
+	
 	if (sortTerm != nil){
 		NSSortDescriptor *sortBy = [[NSSortDescriptor alloc] initWithKey:sortTerm ascending:ascending];
 		[request setSortDescriptors:[NSArray arrayWithObject:sortBy]];
 		[sortBy release];
 	}
-
+	
 	return request;
 }
 
 + (NSFetchRequest *)requestAllSortedBy:(NSString *)sortTerm ascending:(BOOL)ascending withPredicate:(NSPredicate *)searchTerm;
 {
-	NSFetchRequest *request = [self requestAllSortedBy:sortTerm
+	NSFetchRequest *request = [self requestAllSortedBy:sortTerm 
 											 ascending:ascending
-										 withPredicate:searchTerm
+										 withPredicate:searchTerm 
 											 inContext:[self currentContext]];
 	return request;
 }
@@ -482,7 +454,7 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 
 + (NSArray *)findAllInContext:(NSManagedObjectContext *)context
 {
-	return [self executeFetchRequest:[self requestAllInContext:context] inContext:context];
+	return [self executeFetchRequest:[self requestAllInContext:context] inContext:context];	
 }
 
 + (NSArray *)findAll
@@ -493,32 +465,32 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 + (NSArray *)findAllSortedBy:(NSString *)sortTerm ascending:(BOOL)ascending inContext:(NSManagedObjectContext *)context
 {
 	NSFetchRequest *request = [self requestAllSortedBy:sortTerm ascending:ascending inContext:context];
-
+	
 	return [self executeFetchRequest:request inContext:context];
 }
 
 + (NSArray *)findAllSortedBy:(NSString *)sortTerm ascending:(BOOL)ascending
 {
-	return [self findAllSortedBy:sortTerm
-					   ascending:ascending
+	return [self findAllSortedBy:sortTerm 
+					   ascending:ascending 
 					   inContext:[self currentContext]];
 }
 
 + (NSArray *)findAllSortedBy:(NSString *)sortTerm ascending:(BOOL)ascending withPredicate:(NSPredicate *)searchTerm inContext:(NSManagedObjectContext *)context
 {
-	NSFetchRequest *request = [self requestAllSortedBy:sortTerm
+	NSFetchRequest *request = [self requestAllSortedBy:sortTerm 
 											 ascending:ascending
 										 withPredicate:searchTerm
 											 inContext:context];
-
+	
 	return [self executeFetchRequest:request inContext:context];
 }
 
 + (NSArray *)findAllSortedBy:(NSString *)sortTerm ascending:(BOOL)ascending withPredicate:(NSPredicate *)searchTerm
 {
-	return [self findAllSortedBy:sortTerm
+	return [self findAllSortedBy:sortTerm 
 					   ascending:ascending
-				   withPredicate:searchTerm
+				   withPredicate:searchTerm 
 					   inContext:[self currentContext]];
 }
 
@@ -533,20 +505,20 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 #ifdef STORE_USE_CACHE
 	cacheName = [NSString stringWithFormat:@"ActiveRecord-Cache-%@", NSStringFromClass(self)];
 #endif
-
-	NSFetchRequest *request = [self requestAllSortedBy:sortTerm
-											 ascending:ascending
+	
+	NSFetchRequest *request = [self requestAllSortedBy:sortTerm 
+											 ascending:ascending 
 										 withPredicate:searchTerm
 											 inContext:context];
-
-	NSFetchedResultsController *controller = [[NSFetchedResultsController alloc] initWithFetchRequest:request
+	
+	NSFetchedResultsController *controller = [[NSFetchedResultsController alloc] initWithFetchRequest:request 
 																				 managedObjectContext:context
 																				   sectionNameKeyPath:group
 																							cacheName:cacheName];
 	return [controller autorelease];
 }
 
-+ (NSFetchedResultsController *)fetchRequestAllGroupedBy:(NSString *)group withPredicate:(NSPredicate *)searchTerm sortedBy:(NSString *)sortTerm ascending:(BOOL)ascending
++ (NSFetchedResultsController *)fetchRequestAllGroupedBy:(NSString *)group withPredicate:(NSPredicate *)searchTerm sortedBy:(NSString *)sortTerm ascending:(BOOL)ascending 
 {
 	return [self fetchRequestAllGroupedBy:group
 							withPredicate:searchTerm
@@ -557,22 +529,22 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 
 + (NSFetchedResultsController *)fetchAllSortedBy:(NSString *)sortTerm ascending:(BOOL)ascending withPredicate:(NSPredicate *)searchTerm groupBy:(NSString *)groupingKeyPath inContext:(NSManagedObjectContext *)context
 {
-	NSFetchedResultsController *controller = [self fetchRequestAllGroupedBy:groupingKeyPath
+	NSFetchedResultsController *controller = [self fetchRequestAllGroupedBy:groupingKeyPath 
 															  withPredicate:searchTerm
-																   sortedBy:sortTerm
+																   sortedBy:sortTerm 
 																  ascending:ascending
 																  inContext:context];
-
+	
 	[self performFetch:controller];
 	return controller;
 }
 
 + (NSFetchedResultsController *)fetchAllSortedBy:(NSString *)sortTerm ascending:(BOOL)ascending withPredicate:(NSPredicate *)searchTerm groupBy:(NSString *)groupingKeyPath
 {
-	return [self fetchAllSortedBy:sortTerm
+	return [self fetchAllSortedBy:sortTerm 
 						ascending:ascending
-					withPredicate:searchTerm
-						  groupBy:groupingKeyPath
+					withPredicate:searchTerm 
+						  groupBy:groupingKeyPath 
 						inContext:[self currentContext]];
 }
 
@@ -593,7 +565,7 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 
 + (NSFetchedResultsController *)fetchRequest:(NSFetchRequest *)request groupedBy:(NSString *)group
 {
-	return [self fetchRequest:request
+	return [self fetchRequest:request 
 					groupedBy:group
 					inContext:[self currentContext]];
 }
@@ -605,21 +577,21 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 {
 	NSFetchRequest *request = [self createFetchRequestInContext:context];
 	[request setPredicate:searchTerm];
-
-	return [self executeFetchRequest:request
+	
+	return [self executeFetchRequest:request 
 						   inContext:context];
 }
 
 + (NSArray *)findAllWithPredicate:(NSPredicate *)searchTerm
 {
-	return [self findAllWithPredicate:searchTerm
+	return [self findAllWithPredicate:searchTerm 
 							inContext:[self currentContext]];
 }
 
 + (id)findFirstInContext:(NSManagedObjectContext *)context
 {
 	NSFetchRequest *request = [self createFetchRequestInContext:context];
-
+	
 	return [self executeFetchRequestAndReturnFirstObject:request inContext:context];
 }
 
@@ -629,23 +601,24 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 }
 
 + (id)findFirstByAttribute:(NSString *)attribute withValue:(id)searchValue inContext:(NSManagedObjectContext *)context
-{
+{	
 	NSFetchRequest *request = [self requestFirstByAttribute:attribute withValue:searchValue inContext:context];
-
+    [request setPropertiesToFetch:[self propertiesNamed:[NSArray arrayWithObject:attribute]]];
+    
 	return [self executeFetchRequestAndReturnFirstObject:request inContext:context];
 }
 
 + (id)findFirstByAttribute:(NSString *)attribute withValue:(id)searchValue
 {
-	return [self findFirstByAttribute:attribute
-							withValue:searchValue
+	return [self findFirstByAttribute:attribute 
+							withValue:searchValue 
 							inContext:[self currentContext]];
 }
 
 + (id)findFirstWithPredicate:(NSPredicate *)searchTerm inContext:(NSManagedObjectContext *)context
 {
     NSFetchRequest *request = [self requestFirstWithPredicate:searchTerm];
-
+    
     return [self executeFetchRequestAndReturnFirstObject:request inContext:context];
 }
 
@@ -657,15 +630,15 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 + (id)findFirstWithPredicate:(NSPredicate *)searchterm sortedBy:(NSString *)property ascending:(BOOL)ascending inContext:(NSManagedObjectContext *)context
 {
 	NSFetchRequest *request = [self requestAllSortedBy:property ascending:ascending withPredicate:searchterm inContext:context];
-
+    
 	return [self executeFetchRequestAndReturnFirstObject:request inContext:context];
 }
 
 + (id)findFirstWithPredicate:(NSPredicate *)searchterm sortedBy:(NSString *)property ascending:(BOOL)ascending
 {
-	return [self findFirstWithPredicate:searchterm
-							   sortedBy:property
-							  ascending:ascending
+	return [self findFirstWithPredicate:searchterm 
+							   sortedBy:property 
+							  ascending:ascending 
 							  inContext:[self currentContext]];
 }
 
@@ -673,33 +646,35 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 {
 	NSFetchRequest *request = [self createFetchRequestInContext:context];
 	[request setPredicate:searchTerm];
-
+	[request setPropertiesToFetch:[self propertiesNamed:attributes]];
+	
 	return [self executeFetchRequestAndReturnFirstObject:request inContext:context];
 }
 
 + (id)findFirstWithPredicate:(NSPredicate *)searchTerm andRetrieveAttributes:(NSArray *)attributes
 {
-	return [self findFirstWithPredicate:searchTerm
-				  andRetrieveAttributes:attributes
+	return [self findFirstWithPredicate:searchTerm 
+				  andRetrieveAttributes:attributes 
 							  inContext:[self currentContext]];
 }
 
 
 + (id)findFirstWithPredicate:(NSPredicate *)searchTerm sortedBy:(NSString *)sortBy ascending:(BOOL)ascending inContext:(NSManagedObjectContext *)context andRetrieveAttributes:(id)attributes, ...
 {
-	NSFetchRequest *request = [self requestAllSortedBy:sortBy
+	NSFetchRequest *request = [self requestAllSortedBy:sortBy 
 											 ascending:ascending
 										 withPredicate:searchTerm
 											 inContext:context];
-
+	[request setPropertiesToFetch:[self propertiesNamed:attributes]];
+	
 	return [self executeFetchRequestAndReturnFirstObject:request inContext:context];
 }
 
 + (id)findFirstWithPredicate:(NSPredicate *)searchTerm sortedBy:(NSString *)sortBy ascending:(BOOL)ascending andRetrieveAttributes:(id)attributes, ...
 {
 	return [self findFirstWithPredicate:searchTerm
-							   sortedBy:sortBy
-							  ascending:ascending
+							   sortedBy:sortBy 
+							  ascending:ascending 
                               inContext:[self currentContext]
 				  andRetrieveAttributes:attributes];
 }
@@ -707,16 +682,16 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 + (NSArray *)findByAttribute:(NSString *)attribute withValue:(id)searchValue inContext:(NSManagedObjectContext *)context
 {
 	NSFetchRequest *request = [self createFetchRequestInContext:context];
-
+	
 	[request setPredicate:[NSPredicate predicateWithFormat:@"%K = %@", attribute, searchValue]];
-
+	
 	return [self executeFetchRequest:request inContext:context];
 }
 
 + (NSArray *)findByAttribute:(NSString *)attribute withValue:(id)searchValue
 {
-	return [self findByAttribute:attribute
-					   withValue:searchValue
+	return [self findByAttribute:attribute 
+					   withValue:searchValue 
 					   inContext:[self currentContext]];
 }
 
@@ -724,29 +699,37 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 {
 	NSPredicate *searchTerm = [NSPredicate predicateWithFormat:@"%K = %@", attribute, searchValue];
 	NSFetchRequest *request = [self requestAllSortedBy:sortTerm ascending:ascending withPredicate:searchTerm inContext:context];
-
+	
 	return [self executeFetchRequest:request];
 }
 
 + (NSArray *)findByAttribute:(NSString *)attribute withValue:(id)searchValue andOrderBy:(NSString *)sortTerm ascending:(BOOL)ascending
 {
-	return [self findByAttribute:attribute
+	return [self findByAttribute:attribute 
 					   withValue:searchValue
-					  andOrderBy:sortTerm
-					   ascending:ascending
+					  andOrderBy:sortTerm 
+					   ascending:ascending 
 					   inContext:[self currentContext]];
 }
 
 + (id)createInContext:(NSManagedObjectContext *)context
 {
-    NSString *entityName = NSStringFromClass([self class]);
-    return [NSEntityDescription insertNewObjectForEntityForName:entityName inManagedObjectContext:context];
+    if ([self respondsToSelector:@selector(insertInManagedObjectContext:)])
+    {
+        id entity = [self performSelector:@selector(insertInManagedObjectContext:)withObject:context];
+        return entity;
+    }
+    else
+    {
+        NSString *entityName = NSStringFromClass([self class]);
+        return [NSEntityDescription insertNewObjectForEntityForName:entityName inManagedObjectContext:context];
+    }
 }
 
 + (id)createEntity
-{
+{	
 	NSManagedObject *newEntity = [self createInContext:[self currentContext]];
-
+    
 	return newEntity;
 }
 
@@ -782,21 +765,21 @@ RK_FIX_CATEGORY_BUG(NSManagedObject_ActiveRecord)
 {
 	NSManagedObject *obj = [[self class] findFirstByAttribute:property
 													withValue:[NSString stringWithFormat:@"max(%@)", property]];
-
+	
 	return [obj valueForKey:property];
 }
 
 + (id)objectWithMinValueFor:(NSString *)property inContext:(NSManagedObjectContext *)context
 {
 	NSFetchRequest *request = [[self class] createFetchRequestInContext:context];
-
+    
 	NSPredicate *searchFor = [NSPredicate predicateWithFormat:@"SELF = %@ AND %K = min(%@)", self, property, property];
 	[request setPredicate:searchFor];
-
+	
 	return [[self class] executeFetchRequestAndReturnFirstObject:request inContext:context];
 }
 
-+ (id)objectWithMinValueFor:(NSString *)property
++ (id)objectWithMinValueFor:(NSString *)property 
 {
 	return [[self class] objectWithMinValueFor:property inContext:[self currentContext]];
 }

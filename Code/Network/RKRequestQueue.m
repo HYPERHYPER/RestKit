@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Blake Watters on 12/1/10.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2010 Two Toasters
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@
 #import "RKRequestQueue.h"
 #import "RKResponse.h"
 #import "RKNotifications.h"
-#import "RKLog.h"
-#import "RKFixCategoryBug.h"
+#import "../Support/RKLog.h"
+#import "../Support/RKFixCategoryBug.h"
 
 RK_FIX_CATEGORY_BUG(UIApplication_RKNetworkActivity)
 
@@ -42,6 +42,9 @@ static const NSTimeInterval kFlushDelay = 0.3;
 
 @interface RKRequestQueue ()
 @property (nonatomic, retain, readwrite) NSString* name;
+
+// Declare the loading count read-write
+@property (nonatomic, assign, readwrite) NSUInteger loadingCount;
 @end
 
 @implementation RKRequestQueue
@@ -51,6 +54,7 @@ static const NSTimeInterval kFlushDelay = 0.3;
 @synthesize concurrentRequestsLimit = _concurrentRequestsLimit;
 @synthesize requestTimeout = _requestTimeout;
 @synthesize suspended = _suspended;
+@synthesize loadingCount = _loadingCount;
 
 #if TARGET_OS_IPHONE
 @synthesize showsNetworkActivityIndicatorWhenBusy = _showsNetworkActivityIndicatorWhenBusy;
@@ -92,48 +96,38 @@ static const NSTimeInterval kFlushDelay = 0.3;
     }
     
     // Find existing reference
-    NSArray *requestQueueInstances = [RKRequestQueueInstances copy];
-    RKRequestQueue *namedQueue = nil;
-    for (NSValue* value in requestQueueInstances) {
+    for (NSValue* value in RKRequestQueueInstances) {
         RKRequestQueue* queue = (RKRequestQueue*) [value nonretainedObjectValue];
         if ([queue.name isEqualToString:name]) {
-            namedQueue = queue;
-            break;
+            return queue;
         }
     }
-    [requestQueueInstances release];
     
-    if (namedQueue == nil) {
-        namedQueue = [self requestQueue];
-        namedQueue.name = name;
-        [RKRequestQueueInstances addObject:[NSValue valueWithNonretainedObject:namedQueue]];
-    }
+    RKRequestQueue* queue = [self requestQueue];
+    queue.name = name;
+    [RKRequestQueueInstances addObject:[NSValue valueWithNonretainedObject:queue]];
     
-    return namedQueue;
+    return queue;
 }
 
 + (BOOL)requestQueueExistsWithName:(NSString*)name {
-    BOOL queueExists = NO;
     if (RKRequestQueueInstances) {
-        NSArray *requestQueueInstances = [RKRequestQueueInstances copy];
-        for (NSValue* value in requestQueueInstances) {
+        for (NSValue* value in RKRequestQueueInstances) {
             RKRequestQueue* queue = (RKRequestQueue*) [value nonretainedObjectValue];
             if ([queue.name isEqualToString:name]) {
-                queueExists = YES;
-                break;
+                return YES;
             }
         }
-        [requestQueueInstances release];
     }
     
-    return queueExists;
+    return NO;
 }
             
 - (id)init {
 	if ((self = [super init])) {
 		_requests = [[NSMutableArray alloc] init];
-        _loadingRequests = [[NSMutableSet alloc] init];
 		_suspended = YES;
+		_loadingCount = 0;
 		_concurrentRequestsLimit = 5;
 		_requestTimeout = 300;
         _showsNetworkActivityIndicatorWhenBusy = NO;
@@ -174,8 +168,6 @@ static const NSTimeInterval kFlushDelay = 0.3;
     [self removeFromNamedQueues];
 
     [_queueTimer invalidate];
-    [_loadingRequests release];
-    _loadingRequests = nil;
     [_requests release];
     _requests = nil;
 
@@ -192,14 +184,10 @@ static const NSTimeInterval kFlushDelay = 0.3;
             self.count, self.loadingCount, self.concurrentRequestsLimit];
 }
 
-- (NSUInteger)loadingCount {
-    return [_loadingRequests count];
-}
-
-- (void)addLoadingRequest:(RKRequest*)request {
-    if (self.loadingCount == 0) {
-        RKLogTrace(@"Loading count increasing from 0 to 1. Firing requestQueueDidBeginLoading");
-
+- (void)setLoadingCount:(NSUInteger)count {
+    if (_loadingCount == 0 && count > 0) {
+        RKLogTrace(@"Loading count increasing from 0 to %d. Firing requestQueueDidBeginLoading", count);
+        
         // Transitioning from empty to processing
         if ([_delegate respondsToSelector:@selector(requestQueueDidBeginLoading:)]) {
             [_delegate requestQueueDidBeginLoading:self];
@@ -207,35 +195,26 @@ static const NSTimeInterval kFlushDelay = 0.3;
 
 #if TARGET_OS_IPHONE
         if (self.showsNetworkActivityIndicatorWhenBusy) {
-            [[UIApplication sharedApplication] pushNetworkActivity];
+            [[UIApplication sharedApplication] rk_pushNetworkActivity];
         }
 #endif
-    }
-    @synchronized(self) {
-        [_loadingRequests addObject:request];
-    }
-    RKLogTrace(@"Loading count now %ld for queue %@", (long) self.loadingCount, self);
-}
-
-- (void)removeLoadingRequest:(RKRequest*)request {
-    if (self.loadingCount == 1 && [_loadingRequests containsObject:request]) {
-        RKLogTrace(@"Loading count decreasing from 1 to 0. Firing requestQueueDidFinishLoading");
-
+    } else if (_loadingCount > 0 && count == 0) {
+        RKLogTrace(@"Loading count decreasing from %d to 0. Firing requestQueueDidFinishLoading", _loadingCount);
+        
         // Transition from processing to empty
         if ([_delegate respondsToSelector:@selector(requestQueueDidFinishLoading:)]) {
             [_delegate requestQueueDidFinishLoading:self];
         }
-
+        
 #if TARGET_OS_IPHONE
         if (self.showsNetworkActivityIndicatorWhenBusy) {
-            [[UIApplication sharedApplication] popNetworkActivity];
+            [[UIApplication sharedApplication] rk_popNetworkActivity];
         }
 #endif
     }
-    @synchronized(self) {
-        [_loadingRequests removeObject:request];
-    }
-    RKLogTrace(@"Loading count now %ld for queue %@", (long) self.loadingCount, self);
+    
+    RKLogTrace(@"Loading count set to %d for queue %@", count, self);
+    _loadingCount = count;
 }
 
 - (void)loadNextInQueueDelayed {
@@ -256,7 +235,7 @@ static const NSTimeInterval kFlushDelay = 0.3;
             return request;
         }
     }
-
+    
     return nil;
 }
 
@@ -272,7 +251,7 @@ static const NSTimeInterval kFlushDelay = 0.3;
 	if (self.suspended) {
 		_queueTimer = nil;
 		[self loadNextInQueueDelayed];
-
+        
         RKLogTrace(@"Deferring request loading for queue %@ due to suspension", self);
 		return;
 	}
@@ -288,9 +267,9 @@ static const NSTimeInterval kFlushDelay = 0.3;
                 [_delegate requestQueue:self willSendRequest:request];
             }
 
-            [self addLoadingRequest:request];
-            RKLogDebug(@"Sent request %@ from queue %@. Loading count = %ld of %ld", request, self, (long) self.loadingCount, (long) _concurrentRequestsLimit);
-            [request sendAsynchronously];
+            self.loadingCount = self.loadingCount + 1;
+            [request sendAsynchronously];            
+            RKLogDebug(@"Sent request %@ from queue %@. Loading count = %d of %d", request, self, self.loadingCount, _concurrentRequestsLimit);
 
             if ([_delegate respondsToSelector:@selector(requestQueue:didSendRequest:)]) {
                 [_delegate requestQueue:self didSendRequest:request];
@@ -307,18 +286,18 @@ static const NSTimeInterval kFlushDelay = 0.3;
 	[pool drain];
 }
 
-- (void)setSuspended:(BOOL)isSuspended {
+- (void)setSuspended:(BOOL)isSuspended {    
     if (_suspended != isSuspended) {
         if (isSuspended) {
             RKLogDebug(@"Queue %@ has been suspended", self);
-
+            
             // Becoming suspended
             if ([_delegate respondsToSelector:@selector(requestQueueWasSuspended:)]) {
                 [_delegate requestQueueWasSuspended:self];
             }
         } else {
             RKLogDebug(@"Queue %@ has been unsuspended", self);
-
+            
             // Becoming unsupended
             if ([_delegate respondsToSelector:@selector(requestQueueWasUnsuspended:)]) {
                 [_delegate requestQueueWasUnsuspended:self];
@@ -338,7 +317,6 @@ static const NSTimeInterval kFlushDelay = 0.3;
 
 - (void)addRequest:(RKRequest *)request {
     RKLogTrace(@"Request %@ added to queue %@", request, self);
-    NSAssert(![self containsRequest:request], @"Attempting to add the same request multiple times");
 
     @synchronized(self) {
 
@@ -347,37 +325,36 @@ static const NSTimeInterval kFlushDelay = 0.3;
     }
 
     [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(processRequestDidFinishLoadingNotification:)
-                                                 name:RKRequestDidFinishLoadingNotification
-                                               object:request];
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(processRequestDidLoadResponseNotification:)
+                                             selector:@selector(requestFinishedWithNotification:)
                                                  name:RKRequestDidLoadResponseNotification
                                                object:request];
     [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(processRequestDidFailWithErrorNotification:)
+                                             selector:@selector(requestFinishedWithNotification:)
                                                  name:RKRequestDidFailWithErrorNotification
                                                object:request];
-
+    
 	[self loadNextInQueue];
 }
 
-- (BOOL)removeRequest:(RKRequest*)request {
+- (BOOL)removeRequest:(RKRequest*)request decrementCounter:(BOOL)decrementCounter {
     if ([self containsRequest:request]) {
         RKLogTrace(@"Removing request %@ from queue %@", request, self);
         @synchronized(self) {
-            [self removeLoadingRequest:request];
             [_requests removeObject:request];
             request.queue = nil;
         }
 
         [[NSNotificationCenter defaultCenter] removeObserver:self name:RKRequestDidLoadResponseNotification object:request];
         [[NSNotificationCenter defaultCenter] removeObserver:self name:RKRequestDidFailWithErrorNotification object:request];
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:RKRequestDidFinishLoadingNotification object:request];
-
+        
+        if (decrementCounter) {
+            NSAssert(self.loadingCount > 0, @"Attempted to decrement loading count below zero");
+            self.loadingCount = self.loadingCount - 1;
+            RKLogTrace(@"Decremented the loading count to %d", self.loadingCount);
+        }
         return YES;
     }
-
+    
     RKLogWarning(@"Failed to remove request %@ from queue %@: it is not in the queue.", request, self);
     return NO;
 }
@@ -389,25 +366,27 @@ static const NSTimeInterval kFlushDelay = 0.3;
 - (void)cancelRequest:(RKRequest*)request loadNext:(BOOL)loadNext {
     if ([request isUnsent]) {
         RKLogDebug(@"Canceled undispatched request %@ and removed from queue %@", request, self);
-
-        [self removeRequest:request];
+        
+        // Do not decrement counter
+        [self removeRequest:request decrementCounter:NO];
         request.delegate = nil;
-
+        
         if ([_delegate respondsToSelector:@selector(requestQueue:didCancelRequest:)]) {
             [_delegate requestQueue:self didCancelRequest:request];
         }
-    } else if ([self containsRequest:request] && [request isLoading]) {
+    } else if ([_requests containsObject:request] && [request isLoading]) {
         RKLogDebug(@"Canceled loading request %@ and removed from queue %@", request, self);
-
+        
 		[request cancel];
 		request.delegate = nil;
-
+        
         if ([_delegate respondsToSelector:@selector(requestQueue:didCancelRequest:)]) {
             [_delegate requestQueue:self didCancelRequest:request];
         }
-
-        [self removeRequest:request];
-
+        
+        // Decrement the counter
+        [self removeRequest:request decrementCounter:YES];
+		
 		if (loadNext) {
 			[self loadNextInQueue];
 		}
@@ -419,26 +398,12 @@ static const NSTimeInterval kFlushDelay = 0.3;
 }
 
 - (void)cancelRequestsWithDelegate:(NSObject<RKRequestDelegate>*)delegate {
-    RKLogDebug(@"Cancelling all request in queue %@ with delegate %p", self, delegate);
+    RKLogDebug(@"Cancelling all request in queue %@ with delegate %@", self, delegate);
 
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 	NSArray* requestsCopy = [NSArray arrayWithArray:_requests];
 	for (RKRequest* request in requestsCopy) {
 		if (request.delegate && request.delegate == delegate) {
-			[self cancelRequest:request];
-		}
-	}
-	[pool drain];
-}
-
-- (void)abortRequestsWithDelegate:(NSObject<RKRequestDelegate>*)delegate {
-    RKLogDebug(@"Aborting all request in queue %@ with delegate %p", self, delegate);
-
-	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-	NSArray* requestsCopy = [NSArray arrayWithArray:_requests];
-	for (RKRequest* request in requestsCopy) {
-		if (request.delegate && request.delegate == delegate) {
-            request.delegate = nil;
 			[self cancelRequest:request];
 		}
 	}
@@ -447,7 +412,7 @@ static const NSTimeInterval kFlushDelay = 0.3;
 
 - (void)cancelAllRequests {
     RKLogDebug(@"Cancelling all request in queue %@", self);
-
+    
 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 	NSArray* requestsCopy = [NSArray arrayWithArray:_requests];
 	for (RKRequest* request in requestsCopy) {
@@ -463,62 +428,43 @@ static const NSTimeInterval kFlushDelay = 0.3;
     [self setSuspended:NO];
 }
 
-- (void)processRequestDidLoadResponseNotification:(NSNotification *)notification {
-    NSAssert([notification.object isKindOfClass:[RKRequest class]], @"Notification expected to contain an RKRequest, got a %@", NSStringFromClass([notification.object class]));
-	RKLogTrace(@"Received notification: %@", notification);
-
-    RKRequest* request = (RKRequest*)notification.object;
-    NSDictionary* userInfo = [notification userInfo];
-
-    // We successfully loaded a response
-    RKLogDebug(@"Received response for request %@, removing from queue. (Now loading %ld of %ld)", request, (long) self.loadingCount, (long) _concurrentRequestsLimit);
-
-    RKResponse* response = [userInfo objectForKey:RKRequestDidLoadResponseNotificationUserInfoResponseKey];
-    if ([_delegate respondsToSelector:@selector(requestQueue:didLoadResponse:)]) {
-        [_delegate requestQueue:self didLoadResponse:response];
-    }
-
-    [self removeLoadingRequest:request];
-    [self loadNextInQueue];
-}
-
-- (void)processRequestDidFailWithErrorNotification:(NSNotification *)notification {
-    NSAssert([notification.object isKindOfClass:[RKRequest class]], @"Notification expected to contain an RKRequest, got a %@", NSStringFromClass([notification.object class]));
-	RKLogTrace(@"Received notification: %@", notification);
-
-    RKRequest* request = (RKRequest*)notification.object;
-    NSDictionary* userInfo = [notification userInfo];
-
-    // We failed with an error
-    NSError* error = nil;
-    if (userInfo) {
-        error = [userInfo objectForKey:RKRequestDidFailWithErrorNotificationUserInfoErrorKey];
-        RKLogDebug(@"Request %@ failed loading in queue %@ with error: %@.(Now loading %ld of %ld)", request, self,
-                   [error localizedDescription], (long) self.loadingCount, (long) _concurrentRequestsLimit);
-    } else {
-        RKLogWarning(@"Received RKRequestDidFailWithErrorNotification without a userInfo, something is amiss...");
-    }
-
-    if ([_delegate respondsToSelector:@selector(requestQueue:didFailRequest:withError:)]) {
-        [_delegate requestQueue:self didFailRequest:request withError:error];
-    }
-
-    [self removeLoadingRequest:request];
-    [self loadNextInQueue];
-}
-
-/*
- Invoked via observation when a request has loaded a response or failed with an
- error. Remove the completed request from the queue and continue processing
+/**
+ * Invoked via observation when a request has loaded a response or failed with an error. Remove
+ * the completed request from the queue and continue processing
  */
-- (void)processRequestDidFinishLoadingNotification:(NSNotification *)notification {
+- (void)requestFinishedWithNotification:(NSNotification*)notification {
     NSAssert([notification.object isKindOfClass:[RKRequest class]], @"Notification expected to contain an RKRequest, got a %@", NSStringFromClass([notification.object class]));
-	RKLogTrace(@"Received notification: %@", notification);
-
+    
     RKRequest* request = (RKRequest*)notification.object;
+    NSDictionary* userInfo = [notification userInfo];
     if ([self containsRequest:request]) {
-        [self removeRequest:request];
-
+        // Decrement the counter
+        [self removeRequest:request decrementCounter:YES];
+        
+        if ([notification.name isEqualToString:RKRequestDidLoadResponseNotification]) {
+            // We successfully loaded a response
+            RKLogDebug(@"Received response for request %@, removing from queue. (Now loading %d of %d)", request, _loadingCount, _concurrentRequestsLimit);
+            
+            RKResponse* response = [userInfo objectForKey:RKRequestDidLoadResponseNotificationUserInfoResponseKey];                        
+            if ([_delegate respondsToSelector:@selector(requestQueue:didLoadResponse:)]) {
+                [_delegate requestQueue:self didLoadResponse:response];
+            }            
+        } else if ([notification.name isEqualToString:RKRequestDidFailWithErrorNotification]) {
+            // We failed with an error
+            NSError* error = nil;
+            if (userInfo) {
+                error = [userInfo objectForKey:RKRequestDidFailWithErrorNotificationUserInfoErrorKey];
+                RKLogDebug(@"Request %@ failed loading in queue %@ with error: %@.(Now loading %d of %d)", request, self, 
+                           [error localizedDescription], _loadingCount, _concurrentRequestsLimit);
+            } else {
+                RKLogWarning(@"Received RKRequestDidFailWithErrorNotification without a userInfo, something is amiss...");
+            }
+            
+            if ([_delegate respondsToSelector:@selector(requestQueue:didFailRequest:withError:)]) {
+                [_delegate requestQueue:self didFailRequest:request withError:error];
+            }
+        }
+        
         // Load the next request
         [self loadNextInQueue];
     } else {
@@ -530,14 +476,14 @@ static const NSTimeInterval kFlushDelay = 0.3;
 
 - (void)willTransitionToBackground {
     RKLogDebug(@"App is transitioning into background, suspending queue");
-
+    
     // Suspend the queue so background requests do not trigger additional requests on state changes
     self.suspended = YES;
 }
 
 - (void)willTransitionToForeground {
     RKLogDebug(@"App returned from background, unsuspending queue");
-
+    
     self.suspended = NO;
 }
 
@@ -547,48 +493,48 @@ static const NSTimeInterval kFlushDelay = 0.3;
 
 @implementation UIApplication (RKNetworkActivity)
 
-static NSInteger networkActivityCount;
+static NSInteger rk_networkActivityCount;
 
-- (NSInteger)networkActivityCount {
+- (NSInteger)rk_networkActivityCount {
     @synchronized(self) {
-        return networkActivityCount;
+        return rk_networkActivityCount;
     }
 }
 
-- (void)refreshActivityIndicator {
+- (void)rk_refreshActivityIndicator {
     if(![NSThread isMainThread]) {
-        SEL sel_refresh = @selector(refreshActivityIndicator);
+        SEL sel_refresh = @selector(rk_refreshActivityIndicator);
         [self performSelectorOnMainThread:sel_refresh withObject:nil waitUntilDone:NO];
         return;
     }
-    BOOL active = (self.networkActivityCount > 0);
+    BOOL active = (self.rk_networkActivityCount > 0);
     self.networkActivityIndicatorVisible = active;
 }
 
-- (void)pushNetworkActivity {
+- (void)rk_pushNetworkActivity {
     @synchronized(self) {
-        networkActivityCount++;
+        rk_networkActivityCount++;
     }
-    [self refreshActivityIndicator];
+    [self rk_refreshActivityIndicator];
 }
 
-- (void)popNetworkActivity {
+- (void)rk_popNetworkActivity {
     @synchronized(self) {
-        if (networkActivityCount > 0) {
-            networkActivityCount--;
+        if (rk_networkActivityCount > 0) {
+            rk_networkActivityCount--;
         } else {
-            networkActivityCount = 0;
+            rk_networkActivityCount = 0;
             RKLogError(@"Unbalanced network activity: count already 0.");
         }
     }
-    [self refreshActivityIndicator];
+    [self rk_refreshActivityIndicator];
 }
 
-- (void)resetNetworkActivity {
+- (void)rk_resetNetworkActivity {
     @synchronized(self) {
-        networkActivityCount = 0;
+        rk_networkActivityCount = 0;
     }
-    [self refreshActivityIndicator];
+    [self rk_refreshActivityIndicator];
 }
 
 @end

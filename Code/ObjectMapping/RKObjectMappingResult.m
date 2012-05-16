@@ -3,7 +3,7 @@
 //  RestKit
 //
 //  Created by Blake Watters on 5/7/11.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2011 Two Toasters
 //  
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 #import "RKObjectMappingResult.h"
 #import "RKObjectMapperError.h"
-#import "RKLog.h"
+#import "../Support/RKLog.h"
 
 @implementation RKObjectMappingResult
 
@@ -69,7 +69,7 @@
         return nil;
     }
     
-    if (count > 1) RKLogWarning(@"Coerced object mapping result containing %lu objects into singular result.", (unsigned long) count);
+    if (count > 1) RKLogWarning(@"Coerced object mapping result containing %d objects into singular result.", count);
     return [collection objectAtIndex:0];
 }
 
@@ -84,7 +84,7 @@
     NSDictionary* userInfo = [NSDictionary dictionaryWithObjectsAndKeys:collection, RKObjectMapperErrorObjectsKey,
                               description, NSLocalizedDescriptionKey, nil];
     
-    NSError* error = [NSError errorWithDomain:RKErrorDomain code:RKObjectMapperErrorFromMappingResult userInfo:userInfo];
+    NSError* error = [NSError errorWithDomain:RKRestKitErrorDomain code:RKObjectMapperErrorFromMappingResult userInfo:userInfo];
     return error;
 }
 

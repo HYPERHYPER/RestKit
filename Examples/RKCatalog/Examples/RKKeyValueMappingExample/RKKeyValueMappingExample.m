@@ -3,7 +3,7 @@
 //  RKCatalog
 //
 //  Created by Blake Watters on 4/21/11.
-//  Copyright (c) 2009-2012 RestKit. All rights reserved.
+//  Copyright 2011 Two Toasters. All rights reserved.
 //
 
 #import <RestKit/RestKit.h>
@@ -51,7 +51,7 @@
 - (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil {
     self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
     if (self) {
-        [RKObjectManager managerWithBaseURL:gRKCatalogBaseURL];
+        [RKObjectManager objectManagerWithBaseURL:gRKCatalogBaseURL];
     }
     
     return self;
@@ -69,9 +69,8 @@
      @"transactions.@avg.amount", @"averageTransactionAmount",
      @"transactions.@distinctUnionOfObjects.payee", @"distinctPayees",
      nil];
-    
-    [[RKObjectManager sharedManager].mappingProvider setObjectMapping:mapping forResourcePathPattern:@"/RKKeyValueMappingExample"];
-    [[RKObjectManager sharedManager] loadObjectsAtResourcePath:@"/RKKeyValueMappingExample" delegate:self];
+     
+    [[RKObjectManager sharedManager] loadObjectsAtResourcePath:@"/RKKeyValueMappingExample" objectMapping:mapping delegate:self];
 }
 
 - (void)objectLoader:(RKObjectLoader*)objectLoader didLoadObjects:(NSArray*)objects {
