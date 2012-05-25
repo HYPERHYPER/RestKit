@@ -47,6 +47,7 @@
 @synthesize additionalHTTPHeaders = _additionalHTTPHeaders;
 @synthesize params = _params;
 @synthesize userData = _userData;
+@synthesize runLoopMode = _runLoopMode;
 @synthesize authenticationType = _authenticationType;
 @synthesize username = _username;
 @synthesize password = _password;
@@ -63,6 +64,7 @@
 @synthesize OAuth2RefreshToken = _OAuth2RefreshToken;
 @synthesize queue = _queue;
 @synthesize reachabilityObserver = _reachabilityObserver;
+@synthesize responseModifierBlock = _responseModifierBlock;
 
 #if TARGET_OS_IPHONE
 @synthesize backgroundPolicy = _backgroundPolicy, backgroundTaskIdentifier = _backgroundTaskIdentifier;
@@ -97,7 +99,8 @@
     if (self) {        
 #if TARGET_OS_IPHONE
         _backgroundPolicy = RKRequestBackgroundPolicyCancel;
-        _backgroundTaskIdentifier = 0; 
+        _backgroundTaskIdentifier = 0;
+        _runLoopMode = NSDefaultRunLoopMode;
         BOOL backgroundOK = &UIBackgroundTaskInvalid != NULL;
         if (backgroundOK) {
             _backgroundTaskIdentifier = UIBackgroundTaskInvalid; 
@@ -174,6 +177,8 @@
     _OAuth2AccessToken = nil;
     [_OAuth2RefreshToken release];
     _OAuth2RefreshToken = nil;
+    [_responseModifierBlock release];
+    _responseModifierBlock = nil;
     
     // Cleanup a background task if there is any
     [self cleanupBackgroundTask];
@@ -351,7 +356,9 @@
     
     RKResponse* response = [[[RKResponse alloc] initWithRequest:self] autorelease];
     
-    _connection = [[NSURLConnection connectionWithRequest:_URLRequest delegate:response] retain];
+    _connection = [[NSURLConnection alloc] initWithRequest:_URLRequest delegate:response startImmediately:NO];
+    [_connection scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:_runLoopMode];
+    [_connection start];
     
     [[NSNotificationCenter defaultCenter] postNotificationName:RKRequestSentNotification object:self userInfo:nil];
 }
@@ -622,6 +629,11 @@
 	} else {
         [NSException raise:NSInvalidArgumentException format:@"Resource path can only be mutated when self.URL is an RKURL instance"];
     }
+}
+
+- (void)onBeforeCache:(NSData *(^)(NSData *data))block {
+    
+    [self setResponseModifierBlock:block];
 }
 
 - (BOOL)wasSentToResourcePath:(NSString*)resourcePath {

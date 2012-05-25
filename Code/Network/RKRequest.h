@@ -91,7 +91,7 @@ typedef enum {
 
 @class RKResponse, RKRequestQueue, RKReachabilityObserver;
 @protocol RKRequestDelegate;
-
+typedef NSData* (^RKResponseModifierBlock)(NSData*);
 /**
  Models the request portion of an HTTP request/response cycle.
  */
@@ -102,6 +102,7 @@ typedef enum {
 	NSDictionary *_additionalHTTPHeaders;
 	NSObject<RKRequestSerializable> *_params;
 	NSObject<RKRequestDelegate> *_delegate;
+    NSString *_runLoopMode;
 	id _userData;
     RKRequestAuthenticationType _authenticationType;
 	NSString *_username;
@@ -122,6 +123,7 @@ typedef enum {
     NSTimeInterval _cacheTimeoutInterval;
     RKRequestQueue *_queue;
     RKReachabilityObserver *_reachabilityObserver;
+    RKResponseModifierBlock _responseModifierBlock;
     
     #if TARGET_OS_IPHONE
     RKRequestBackgroundPolicy _backgroundPolicy;
@@ -160,6 +162,11 @@ typedef enum {
 @property(nonatomic, assign) NSObject<RKRequestDelegate> *delegate;
 
 /**
+ * Specify the runLoopMode for the request, default is NSDefaultRunLoopMode.
+ */
+@property(nonatomic, copy) NSString *runLoopMode; 
+
+/**
  * A Dictionary of additional HTTP Headers to send with the request
  */
 @property(nonatomic, retain) NSDictionary *additionalHTTPHeaders;
@@ -183,6 +190,11 @@ typedef enum {
  The request queue that this request belongs to
  */
 @property (nonatomic, assign) RKRequestQueue *queue;
+
+/**
+ A block that can be used to modify response data before it is cached
+ */
+@property (nonatomic, copy) RKResponseModifierBlock responseModifierBlock;
 
 /**
  * The policy to take on transition to the background (iOS 4.x and higher only)
@@ -430,6 +442,9 @@ typedef enum {
  * Returns YES when the request was sent to the specified resource path
  */
 - (BOOL)wasSentToResourcePath:(NSString *)resourcePath;
+
+
+- (void)onBeforeCache:(NSData *(^)(NSData *data))block;
 
 @end
 

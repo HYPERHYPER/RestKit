@@ -61,7 +61,7 @@
 /**
  * The data returned as the response body
  */
-@property(nonatomic, readonly) NSData* body;
+@property(nonatomic, retain) NSData* body;
 
 /**
  * The error returned if the URL connection fails

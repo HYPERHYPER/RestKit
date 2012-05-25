@@ -158,6 +158,7 @@ static NSDateFormatter* __rfc1123DateFormatter;
 }
 
 - (void)storeResponse:(RKResponse*)response forRequest:(RKRequest*)request {
+    
     if (! [request isCacheable]) {
         return;
     }
@@ -172,6 +173,11 @@ static NSDateFormatter* __rfc1123DateFormatter;
 		NSString* cachePath = [self pathForRequest:request];
 		if (cachePath) {
 			NSData* body = response.body;
+            RKResponseModifierBlock modifierBlock = nil;
+            if ((modifierBlock = [request responseModifierBlock])) {
+                body = modifierBlock(body);
+                response.body = body;
+            }
 			if (body) {
                 NSError* error = nil;
                 BOOL success = [body writeToFile:cachePath options:NSDataWritingAtomic error:&error];
